@@ -790,8 +790,11 @@ void loop() {
 
     // set effect for mode
     switch (mode) {
+        case 255:
+            displayText("BYEEE", LAYER_FRONT, 2);
+            break;
         case 0:
-            fillMatrix(0xff);
+            displayText("SORRY", LAYER_FRONT, 2);
             break;
         case 1:
             scrollText("HELLO WORLD!", LAYER_FRONT, true);
