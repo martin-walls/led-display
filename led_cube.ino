@@ -12,18 +12,9 @@
 #define DIR_T_TO_B 3
 #define DIR_B_TO_T 4
 
-/* ARDUINO REFERENCE: this could possibly be an issue??
-If the volatile variable is bigger than a uint8_t (e.g. a 16 bit int or a 32 bit long), 
-then the microcontroller can not read it in one step, because it is an 8 bit microcontroller. 
-This means that while your main code section (e.g. your loop) reads the 
-first 8 bits of the variable, the interrupt might already change the second 8 bits. 
-This will produce random values for the variable.
-*/
-
-
 // each 32 bit row is split into two 16-bit ints. 
 //   [  [ front layer bottom to top ],  [ back layer bottom to top ]]
-//   [  [0000000000000000, (long), (long), ...x6],  [(long), (long), ...x6]  ]
+//   [  [0000000000000000, (uint16_t), (uint16_t), ...x6],  [(uint16_t), (uint16_t), ...x6]  ]
 volatile uint16_t matrix[2][6][2];
 volatile int currentRow = 0;
 
