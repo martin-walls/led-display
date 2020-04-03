@@ -4,6 +4,10 @@
 #define LAYER_FRONT 0
 #define LAYER_BACK 1
 
+#define WIDTH 32
+#define HEIGHT 6
+#define NUM_LAYERS 2
+
 #define BTN_ON 0
 #define BTN_OFF 1
 
@@ -11,6 +15,9 @@
 #define DIR_R_TO_L 1
 #define DIR_T_TO_B 3
 #define DIR_B_TO_T 4
+
+#define PACDOT_SPACING 4
+#define PACDOT_HEIGHT 2
 
 // each 32 bit row is split into two 16-bit ints. 
 //   [  [ front layer bottom to top ],  [ back layer bottom to top ]]
@@ -563,7 +570,7 @@ uint8_t asciiLen[59] = {
     4 // Z
 };
 
-uint8_t pacmanShapes[2][6] = {
+uint8_t pacmanShapes[3][6] = {
     {
         B00000,
         B01110,
@@ -579,6 +586,14 @@ uint8_t pacmanShapes[2][6] = {
         B10011,
         B10001,
         B01110
+    },
+    {
+        B00000,
+        B00000,
+        B00000,
+        B00000,
+        B00000,
+        B00000
     }
 };
 
@@ -790,11 +805,8 @@ void loop() {
 
     // set effect for mode
     switch (mode) {
-        case 255:
-            displayText("BYEEE", LAYER_FRONT, 2);
-            break;
         case 0:
-            displayText("SORRY", LAYER_FRONT, 2);
+            scrollTextIfLong("HELLO WORLD!", LAYER_FRONT);
             break;
         case 1:
             scrollText("HELLO WORLD!", LAYER_FRONT, true);
@@ -883,6 +895,20 @@ void displayMode() {
     displayText(String(mode), LAYER_FRONT, 2);
 }
 
+// if text wider than matrix, scroll text, else display statically
+void scrollTextIfLong(String message, uint8_t z) {
+    uint16_t len = 0;
+    for (char c : message) {
+        len += asciiLen[c - ' '] + 1;
+    }
+
+    if (len > 32) {
+        scrollText(message, z, true);
+    } else {
+        displayText(message, z, 0);
+    }
+}
+
 // shows static text
 void displayText(String message, uint8_t z, uint8_t startX) {
     uint8_t x;
@@ -907,7 +933,7 @@ void displayText(String message, uint8_t z, uint8_t startX) {
 
 // scrolls text from right to left
 void scrollText(String message, uint8_t z, bool scrollOut) {
-    uint16_t frameDelay = 150;
+    uint16_t frameDelay = 120;
 
     for (char c : message) {
 
@@ -934,7 +960,7 @@ void scrollText(String message, uint8_t z, bool scrollOut) {
 }
 
 void scrollTextBothLayers(String message, bool scrollOut) {
-    uint16_t frameDelay = 150;
+    uint16_t frameDelay = 120;
 
     for (char c : message) {
 
@@ -1093,32 +1119,49 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
     }
 }
 
+// ============================
+//  PacMan animation
+// ============================
+
 void pacman() {
     int frameDelay = 400;
 
     fillLayer(LAYER_FRONT, 0);
 
-    // drawPacDots(DIR_L_TO_R);
-    // pacmanScrollLtoR(frameDelay);
-    // if (modeChanged) return;
+    drawPacDots(DIR_L_TO_R);
+    pacmanScrollLtoR(frameDelay);
 
-    // drawPacDots(DIR_R_TO_L);
-    // pacmanScrollRtoL(frameDelay);
-    // if (modeChanged) return;
+    if (modeChanged) return;
+    delay(frameDelay * 4);
+
+    drawPacDots(DIR_R_TO_L);
+    pacmanScrollRtoL(frameDelay);
+
+    if (modeChanged) return;
+    delay(frameDelay * 4);
 
     drawPacDots(DIR_L_TO_R);
     pacmanScrollLtoRwGhosts(frameDelay, 2, 12);
-    
+
+    if (modeChanged) return;
+    delay(frameDelay * 4);
+
     drawPacDots(DIR_R_TO_L);
     pacmanScrollRtoLwGhosts(frameDelay, 2, 12);
-}
 
-void drawPacDots(uint8_t direction) {
-    if (direction == DIR_L_TO_R) {
-        fillRow(2, LAYER_BACK, B00100010);
-    } else {
-        fillRow(2, LAYER_BACK, B01000100);
-    }
+    if (modeChanged) return;
+    delay(frameDelay * 4);
+
+    pacmanEatGhost(frameDelay);
+
+    if (modeChanged) return;
+    delay(frameDelay * 4);
+
+    drawPacDots(DIR_R_TO_L);
+    pacmanScrollRtoL(frameDelay);
+
+    if (modeChanged) return;
+    delay(frameDelay * 4);
 }
 
 void pacmanScrollLtoR(int frameDelay) {
@@ -1126,7 +1169,7 @@ void pacmanScrollLtoR(int frameDelay) {
     for (int8_t x = -5; x < 33; x++) {
         drawPacmanShape(x, LAYER_FRONT, shape, DIR_L_TO_R);
         setColOff(x - 1, LAYER_FRONT);
-        setColOff(x + 3, LAYER_BACK);
+        setVoxelOff(x + 3, PACDOT_HEIGHT, LAYER_BACK);
 
         if (modeChanged) return;
         delay(frameDelay);
@@ -1142,7 +1185,7 @@ void pacmanScrollRtoL(int frameDelay) {
     for (int8_t x = 32; x >= -5; x--) {
         drawPacmanShape(x, LAYER_FRONT, shape, DIR_R_TO_L);
         setColOff(x + pacmanShapeLen, LAYER_FRONT);
-        setColOff(x + 1, LAYER_BACK);
+        setVoxelOff(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 
         if (modeChanged) return;
         delay(frameDelay);
@@ -1160,7 +1203,7 @@ void pacmanScrollLtoRwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
         // draw pacman
         drawPacmanShape(x, LAYER_FRONT, pacShape, DIR_L_TO_R);
         setColOff(x - 1, LAYER_FRONT);
-        setColOff(x + 3, LAYER_BACK);
+        setVoxelOff(x + 3, PACDOT_HEIGHT, LAYER_BACK);
 
         // draw ghosts
         int8_t ghostPos;
@@ -1188,7 +1231,7 @@ void pacmanScrollRtoLwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
         // draw pacman
         drawPacmanShape(x, LAYER_FRONT, pacShape, DIR_R_TO_L);
         setColOff(x + pacmanShapeLen, LAYER_FRONT);
-        setColOff(x + 1, LAYER_BACK);
+        setVoxelOff(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 
         // draw ghosts
         int8_t ghostPos;
@@ -1205,6 +1248,168 @@ void pacmanScrollRtoLwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
         pacShape++;
         if (pacShape == 2) pacShape = 0;
     }
+}
+
+void pacmanEatGhost(int frameDelay) {
+    drawPacDots(DIR_L_TO_R, 6);
+
+    int8_t pacX = -6;
+    int8_t ghostX = -21;
+
+    uint8_t pacShape = 1;
+    while (pacX < 23) {
+        // draw pacman
+        pacX++;
+        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_L_TO_R);
+        setColOff(pacX - 1, LAYER_FRONT);
+        if (pacX < 22) {
+            setVoxelOff(pacX + 3, PACDOT_HEIGHT, LAYER_BACK);
+        }
+        if (pacX == 23) {
+            setColOff(pacX + 2, LAYER_BACK);
+            setColOff(pacX + 3, LAYER_BACK);
+            setColOff(pacX + 4, LAYER_BACK);
+        }
+
+        // draw ghost
+        ghostX++;
+        drawGhostShape(ghostX, LAYER_FRONT);
+        setColOff(ghostX - 1, LAYER_FRONT);
+
+        if (modeChanged) return;
+        delay(frameDelay);
+        pacShape++;
+        if (pacShape == 2) pacShape = 0;
+    }
+
+    for (uint8_t i = 0; i < 2; i++) {
+        ghostX++;
+        drawGhostShape(ghostX, LAYER_FRONT);
+        setColOff(ghostX - 1, LAYER_FRONT);
+
+        if (modeChanged) return;
+        delay(frameDelay);
+    }
+
+    for (uint8_t i = 0; i < 3; i++) {
+        drawPacmanShape(pacX, LAYER_FRONT, 2, DIR_L_TO_R);
+        ghostX++;
+        drawGhostShape(ghostX, LAYER_FRONT);
+        setColOff(ghostX - 1, LAYER_FRONT);
+
+        if (modeChanged) return;
+        delay(frameDelay / 2);
+
+        drawPacmanShape(pacX, LAYER_FRONT, 0, DIR_L_TO_R);
+        if (modeChanged) return;
+        delay(frameDelay / 2);
+    }
+
+    if (modeChanged) return;
+    delay(frameDelay * 2);
+
+    pacShape = 0;
+    for (uint8_t i = 0; i < 5; i++) {
+        ghostX--;
+        drawGhostShape(ghostX, LAYER_FRONT);
+        setColOff(ghostX + pacmanGhostShapeLen, LAYER_FRONT);
+
+        pacX--;
+        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+        setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
+        pacShape++;
+        if (pacShape == 2) pacShape = 0;
+
+        if (modeChanged) return;
+        delay(frameDelay / 2);
+
+        pacX--;
+        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+        setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
+        pacShape++;
+        if (pacShape == 2) pacShape = 0;
+
+        if (modeChanged) return;
+        delay(frameDelay / 2);
+    }
+
+    ghostX--;
+    drawGhostShape(ghostX, LAYER_FRONT);
+    setColOff(ghostX + pacmanGhostShapeLen, LAYER_FRONT);
+
+    pacX--;
+    pacShape = 0;
+    drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+    setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
+
+    if (modeChanged) return;
+    delay(frameDelay);
+
+    for (uint8_t i = 0; i < 10; i++) {
+        if (i < 6) {
+            matrix[LAYER_FRONT][5 - i][0] |= line(ghostX, ghostX + pacmanGhostShapeLen - 1);
+        }
+        if (i >= 4) {
+            matrix[LAYER_FRONT][9 - i][0] &= ~line(ghostX, ghostX + pacmanGhostShapeLen - 1);
+        }
+        if (modeChanged) return;
+        delay(100);
+    }
+
+    pacShape = 1;
+    while (pacX < 32) {
+        pacX++;
+        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_L_TO_R);
+        setColOff(pacX - 1, LAYER_FRONT);
+        setVoxelOff(pacX + 3, PACDOT_HEIGHT, LAYER_BACK);
+
+        if (modeChanged) return;
+        delay(frameDelay);
+        pacShape++;
+        if (pacShape == 2) pacShape = 0;
+    }
+}
+
+void drawPacDots(uint8_t direction) {
+    if (direction == DIR_L_TO_R) {
+        for (int8_t x = 2; x < WIDTH; x += PACDOT_SPACING) {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+            if (modeChanged) return;
+            delay(100);
+        }
+    } else if (direction == DIR_R_TO_L) {
+        for (int8_t x = 29; x >= 0; x -= PACDOT_SPACING) {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+            if (modeChanged) return;
+            delay(100);
+        }
+    }
+}
+
+void drawPacDots(uint8_t direction, uint8_t bigDotPos) {
+    uint8_t x;
+    for (int8_t dotI = 0; dotI < 8; dotI++) {
+        if (direction == DIR_L_TO_R) {
+            x = 2 + (dotI * PACDOT_SPACING);
+        } else if (direction == DIR_R_TO_L) {
+            x = 29 - (dotI * PACDOT_SPACING);
+        }
+        if (dotI == bigDotPos) {
+            drawPacDotBig(x);
+        } else {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+        }
+        if (modeChanged) return;
+        delay(100);
+    }
+}
+
+void drawPacDotBig(uint8_t x) {
+    setVoxelOn(x, PACDOT_HEIGHT - 1, LAYER_BACK);
+    setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+    setVoxelOn(x, PACDOT_HEIGHT + 1, LAYER_BACK);
+    setVoxelOn(x - 1, PACDOT_HEIGHT, LAYER_BACK);
+    setVoxelOn(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 }
 
 void drawPacmanShape(int x, uint8_t z, uint8_t shape, uint8_t direction) {
@@ -1420,7 +1625,7 @@ void fillRow(uint8_t y, uint8_t z, uint8_t pattern) {
 }
 
 // makes sure x1 > x2
-void setuint8_tsAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
+void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
     if (x1 > x2) {
         uint8_t temp = x1;
         x1 = x2;
@@ -1432,8 +1637,8 @@ void setuint8_tsAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
 
 void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
 
-    setuint8_tsAscOrder(x1, x2, &x1, &x2);
-    setuint8_tsAscOrder(y1, y2, &y1, &y2);
+    setBytesAscOrder(x1, x2, &x1, &x2);
+    setBytesAscOrder(y1, y2, &y1, &y2);
 
     matrix[z][y1][0] = line0(x1, x2);
     matrix[z][y1][1] = line1(x1, x2);
