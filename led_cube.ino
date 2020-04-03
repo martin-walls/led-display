@@ -4,10 +4,6 @@
 #define LAYER_FRONT 0
 #define LAYER_BACK 1
 
-#define WIDTH 32
-#define HEIGHT 6
-#define NUM_LAYERS 2
-
 #define BTN_ON 0
 #define BTN_OFF 1
 
@@ -23,491 +19,498 @@
 //   [  [ front layer bottom to top ],  [ back layer bottom to top ]]
 //   [  [0000000000000000, (uint16_t), (uint16_t), ...x6],  [(uint16_t), (uint16_t), ...x6]  ]
 volatile uint16_t matrix[2][6][2];
-volatile int currentRow = 0;
+// current row being output
+volatile uint8_t currentRow = 0;
 
-unsigned long lastBtnIntMillis = 0;
+// millis of last button press
+uint32_t lastBtnIntMillis = 0;
+// current mode
 volatile uint8_t mode = 0;
+// flag set to true whenever mode is changed by btn press
 volatile bool modeChanged = false;
+// stores the last state of PINB pins
 volatile uint8_t PINB_lastState = 0;
 
-int eeModeAddr = 0;
+// Address where mode is stored in EEPROM memory
+uint16_t eeModeAddr = 0;
 
 // lowercase letters are not defined - use only uppercase
 uint8_t ascii[59][6] = {
     {// SPACE
-        B000,
-        B000,
-        B000,
-        B000,
-        B000,
-        B000
+        0b000,
+        0b000,
+        0b000,
+        0b000,
+        0b000,
+        0b000
     },
     {// !
-        B1,
-        B1,
-        B1,
-        B1,
-        B0,
-        B1
+        0b1,
+        0b1,
+        0b1,
+        0b1,
+        0b0,
+        0b1
     },
     {// "
-        B11,
-        B11,
-        B00,
-        B00,
-        B00,
-        B00
+        0b11,
+        0b11,
+        0b00,
+        0b00,
+        0b00,
+        0b00
     },
     {// #
-        B00000,
-        B01010,
-        B11111,
-        B01010,
-        B11111,
-        B01010
+        0b00000,
+        0b01010,
+        0b11111,
+        0b01010,
+        0b11111,
+        0b01010
     },
     {// $
-        B00100,
-        B01111,
-        B10100,
-        B01110,
-        B00101,
-        B11110
+        0b00100,
+        0b01111,
+        0b10100,
+        0b01110,
+        0b00101,
+        0b11110
     },
     {// %
-        B010001,
-        B101010,
-        B010100,
-        B001010,
-        B010101,
-        B100010
+        0b010001,
+        0b101010,
+        0b010100,
+        0b001010,
+        0b010101,
+        0b100010
     },
     {// &
-        B01110,
-        B10000,
-        B10001,
-        B01111,
-        B10001,
-        B01110
+        0b01110,
+        0b10000,
+        0b10001,
+        0b01111,
+        0b10001,
+        0b01110
     },
     {// '
-        B1,
-        B1,
-        B0,
-        B0,
-        B0,
-        B0
+        0b1,
+        0b1,
+        0b0,
+        0b0,
+        0b0,
+        0b0
     },
     {// (
-        B01,
-        B10,
-        B10,
-        B10,
-        B10,
-        B01
+        0b01,
+        0b10,
+        0b10,
+        0b10,
+        0b10,
+        0b01
     },
     {// )
-        B10,
-        B01,
-        B01,
-        B01,
-        B01,
-        B10
+        0b10,
+        0b01,
+        0b01,
+        0b01,
+        0b01,
+        0b10
     },
     {// *
-        B1,
-        B0,
-        B0,
-        B0,
-        B0,
-        B0
+        0b1,
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b0
     },
     {// +
-        B000,
-        B000,
-        B010,
-        B111,
-        B010,
-        B000
+        0b000,
+        0b000,
+        0b010,
+        0b111,
+        0b010,
+        0b000
     },
     {// ,
-        B0,
-        B0,
-        B0,
-        B0,
-        B1,
-        B1
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b1,
+        0b1
     },
     {// -
-        B000,
-        B000,
-        B000,
-        B111,
-        B000,
-        B000
+        0b000,
+        0b000,
+        0b000,
+        0b111,
+        0b000,
+        0b000
     },
     {// .
-        B0,
-        B0,
-        B0,
-        B0,
-        B0,
-        B1
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b1
     },
     {// /
-        B001,
-        B001,
-        B010,
-        B010,
-        B100,
-        B100
+        0b001,
+        0b001,
+        0b010,
+        0b010,
+        0b100,
+        0b100
     },
     {// 0
-        B0110,
-        B1001,
-        B1001,
-        B1001,
-        B1001,
-        B0110
+        0b0110,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b0110
     },
     {// 1
-        B010,
-        B110,
-        B010,
-        B010,
-        B010,
-        B111
+        0b010,
+        0b110,
+        0b010,
+        0b010,
+        0b010,
+        0b111
     },
     {// 2
-        B0110,
-        B1001,
-        B0001,
-        B0110,
-        B1000,
-        B1111
+        0b0110,
+        0b1001,
+        0b0001,
+        0b0110,
+        0b1000,
+        0b1111
     },
     {// 3
-        B1110,
-        B0001,
-        B0110,
-        B0001,
-        B0001,
-        B1110
+        0b1110,
+        0b0001,
+        0b0110,
+        0b0001,
+        0b0001,
+        0b1110
     },
     {// 4
-        B00010,
-        B00110,
-        B01010,
-        B10010,
-        B11111,
-        B00010
+        0b00010,
+        0b00110,
+        0b01010,
+        0b10010,
+        0b11111,
+        0b00010
     },
     {// 5
-        B1111,
-        B1000,
-        B1110,
-        B0001,
-        B1001,
-        B0110
+        0b1111,
+        0b1000,
+        0b1110,
+        0b0001,
+        0b1001,
+        0b0110
     },
     {// 6
-        B0110,
-        B1000,
-        B1000,
-        B1110,
-        B1001,
-        B0110
+        0b0110,
+        0b1000,
+        0b1000,
+        0b1110,
+        0b1001,
+        0b0110
     },
     {// 7
-        B1111,
-        B0001,
-        B0010,
-        B0100,
-        B0100,
-        B0100
+        0b1111,
+        0b0001,
+        0b0010,
+        0b0100,
+        0b0100,
+        0b0100
     },
     {// 8
-        B0110,
-        B1001,
-        B0110,
-        B1001,
-        B1001,
-        B0110
+        0b0110,
+        0b1001,
+        0b0110,
+        0b1001,
+        0b1001,
+        0b0110
     },
     {// 9
-        B0110,
-        B1001,
-        B0111,
-        B0001,
-        B0001,
-        B0110
+        0b0110,
+        0b1001,
+        0b0111,
+        0b0001,
+        0b0001,
+        0b0110
     },
     {// :
-        B0,
-        B0,
-        B1,
-        B0,
-        B1,
-        B0
+        0b0,
+        0b0,
+        0b1,
+        0b0,
+        0b1,
+        0b0
     },
     {// ;
-        B0,
-        B0,
-        B1,
-        B0,
-        B1,
-        B1
+        0b0,
+        0b0,
+        0b1,
+        0b0,
+        0b1,
+        0b1
     },
     {// <
-        B00,
-        B00,
-        B01,
-        B10,
-        B01,
-        B00
+        0b00,
+        0b00,
+        0b01,
+        0b10,
+        0b01,
+        0b00
     },
     {// =
-        B000,
-        B000,
-        B111,
-        B000,
-        B111,
-        B000
+        0b000,
+        0b000,
+        0b111,
+        0b000,
+        0b111,
+        0b000
     },
     {// >
-        B00,
-        B00,
-        B10,
-        B01,
-        B10,
-        B00
+        0b00,
+        0b00,
+        0b10,
+        0b01,
+        0b10,
+        0b00
     },
     {// ?
-        B0110,
-        B1001,
-        B0001,
-        B0110,
-        B0000,
-        B0100
+        0b0110,
+        0b1001,
+        0b0001,
+        0b0110,
+        0b0000,
+        0b0100
     },
     {// @
-        B011110,
-        B100001,
-        B101101,
-        B101111,
-        B100000,
-        B011111
+        0b011110,
+        0b100001,
+        0b101101,
+        0b101111,
+        0b100000,
+        0b011111
     },
     {// A
-        B0110,
-        B1001,
-        B1001,
-        B1111,
-        B1001,
-        B1001
+        0b0110,
+        0b1001,
+        0b1001,
+        0b1111,
+        0b1001,
+        0b1001
     },
     {// B
-        B1110,
-        B1001,
-        B1110,
-        B1001,
-        B1001,
-        B1110
+        0b1110,
+        0b1001,
+        0b1110,
+        0b1001,
+        0b1001,
+        0b1110
     },
     {// C
-        B0111,
-        B1000,
-        B1000,
-        B1000,
-        B1000,
-        B0111
+        0b0111,
+        0b1000,
+        0b1000,
+        0b1000,
+        0b1000,
+        0b0111
     },
     {// D
-        B1110,
-        B1001,
-        B1001,
-        B1001,
-        B1001,
-        B1110
+        0b1110,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1110
     },
     {// E
-        B1111,
-        B1000,
-        B1000,
-        B1111,
-        B1000,
-        B1111
+        0b1111,
+        0b1000,
+        0b1000,
+        0b1111,
+        0b1000,
+        0b1111
     },
     {// F
-        B1111,
-        B1000,
-        B1111,
-        B1000,
-        B1000,
-        B1000
+        0b1111,
+        0b1000,
+        0b1111,
+        0b1000,
+        0b1000,
+        0b1000
     },
     {// G
-        B0111,
-        B1000,
-        B1000,
-        B1011,
-        B1001,
-        B0111
+        0b0111,
+        0b1000,
+        0b1000,
+        0b1011,
+        0b1001,
+        0b0111
     },
     {// H
-        B1001,
-        B1001,
-        B1001,
-        B1111,
-        B1001,
-        B1001
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1111,
+        0b1001,
+        0b1001
     },
     {// I
-        B111,
-        B010,
-        B010,
-        B010,
-        B010,
-        B111
+        0b111,
+        0b010,
+        0b010,
+        0b010,
+        0b010,
+        0b111
     },
     {// J
-        B111,
-        B001,
-        B001,
-        B001,
-        B101,
-        B010
+        0b111,
+        0b001,
+        0b001,
+        0b001,
+        0b101,
+        0b010
     },
     {// K
-        B1001,
-        B1001,
-        B1010,
-        B1100,
-        B1010,
-        B1001
+        0b1001,
+        0b1001,
+        0b1010,
+        0b1100,
+        0b1010,
+        0b1001
     },
     {// L
-        B1000,
-        B1000,
-        B1000,
-        B1000,
-        B1000,
-        B1111
+        0b1000,
+        0b1000,
+        0b1000,
+        0b1000,
+        0b1000,
+        0b1111
     },
     {// M
-        B10001,
-        B11011,
-        B10101,
-        B10001,
-        B10001,
-        B10001
+        0b10001,
+        0b11011,
+        0b10101,
+        0b10001,
+        0b10001,
+        0b10001
     },
     {// N
-        B1001,
-        B1001,
-        B1101,
-        B1011,
-        B1001,
-        B1001
+        0b1001,
+        0b1001,
+        0b1101,
+        0b1011,
+        0b1001,
+        0b1001
     },
     {// O
-        B0110,
-        B1001,
-        B1001,
-        B1001,
-        B1001,
-        B0110
+        0b0110,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b0110
     },
     {// P
-        B1110,
-        B1001,
-        B1001,
-        B1110,
-        B1000,
-        B1000
+        0b1110,
+        0b1001,
+        0b1001,
+        0b1110,
+        0b1000,
+        0b1000
     },
     {// Q
-        B0110,
-        B1001,
-        B1001,
-        B1001,
-        B0110,
-        B0001
+        0b0110,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b0110,
+        0b0001
     },
     {// R
-        B1110,
-        B1001,
-        B1001,
-        B1110,
-        B1010,
-        B1001
+        0b1110,
+        0b1001,
+        0b1001,
+        0b1110,
+        0b1010,
+        0b1001
     },
     {// S
-        B0111,
-        B1000,
-        B1000,
-        B0110,
-        B0001,
-        B1110
+        0b0111,
+        0b1000,
+        0b1000,
+        0b0110,
+        0b0001,
+        0b1110
     },
     {// T
-        B11111,
-        B00100,
-        B00100,
-        B00100,
-        B00100,
-        B00100
+        0b11111,
+        0b00100,
+        0b00100,
+        0b00100,
+        0b00100,
+        0b00100
     },
     {// U
-        B1001,
-        B1001,
-        B1001,
-        B1001,
-        B1001,
-        B0110
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b1001,
+        0b0110
     },
     {// V
-        B10001,
-        B10001,
-        B10001,
-        B10001,
-        B01010,
-        B00100
+        0b10001,
+        0b10001,
+        0b10001,
+        0b10001,
+        0b01010,
+        0b00100
     },
     {// W
-        B10001,
-        B10001,
-        B10001,
-        B10101,
-        B10101,
-        B01010
+        0b10001,
+        0b10001,
+        0b10001,
+        0b10101,
+        0b10101,
+        0b01010
     },
     {// X
-        B10001,
-        B10001,
-        B01010,
-        B00100,
-        B01010,
-        B10001
+        0b10001,
+        0b10001,
+        0b01010,
+        0b00100,
+        0b01010,
+        0b10001
     },
     {// Y
-        B10001,
-        B10001,
-        B01010,
-        B00100,
-        B00100,
-        B00100
+        0b10001,
+        0b10001,
+        0b01010,
+        0b00100,
+        0b00100,
+        0b00100
     },
     {// Z
-        B1111,
-        B0001,
-        B0010,
-        B0100,
-        B1000,
-        B1111
+        0b1111,
+        0b0001,
+        0b0010,
+        0b0100,
+        0b1000,
+        0b1111
     }
 };
 
+// Length of each character symbol
 uint8_t asciiLen[59] = {
     3, // SPACE
     1, // !
@@ -570,44 +573,44 @@ uint8_t asciiLen[59] = {
     4 // Z
 };
 
+// Shapes for pacman
 uint8_t pacmanShapes[3][6] = {
     {
-        B00000,
-        B01110,
-        B10001,
-        B10010,
-        B10001,
-        B01110
+        0b00000,
+        0b01110,
+        0b10001,
+        0b10010,
+        0b10001,
+        0b01110
     },
     {
-        B00000,
-        B01110,
-        B10001,
-        B10011,
-        B10001,
-        B01110
+        0b00000,
+        0b01110,
+        0b10001,
+        0b10011,
+        0b10001,
+        0b01110
     },
     {
-        B00000,
-        B00000,
-        B00000,
-        B00000,
-        B00000,
-        B00000
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000
     }
 };
 
 uint8_t pacmanShapeLen = 5;
 
-uint8_t pacmanGhostShapes[1][6] = {
-    {
-        B01110,
-        B10001,
-        B11011,
-        B10001,
-        B11011,
-        B10101
-    }
+// Shape for pacman ghost
+uint8_t pacmanGhostShape[6] = {
+    0b01110,
+    0b10001,
+    0b11011,
+    0b10001,
+    0b11011,
+    0b10101
 };
 
 uint8_t pacmanGhostShapeLen = 5;
@@ -619,7 +622,7 @@ void setup() {
     // D4 clock
     // D5-6 cathodes
     // D7 anodes 25-32
-    DDRD |= B11110000;
+    DDRD |= 0b11110000;
 
     // set PORTB input/output modes
     // D13 unused, first two bits map to crystal and unusable
@@ -627,13 +630,13 @@ void setup() {
     // D9 anodes 9-16
     // D10 anodes 1-8
     // D11-12 btns
-    DDRB = B00111;
+    DDRB = 0b00111;
 
 
-    PORTB &= B11111000;
-    PORTD &= B00011111;
+    PORTB &= 0b11111000;
+    PORTD &= 0b00011111;
 
-    for (int i = 0; i < 8; i++) {
+    for (uint8_t i = 0; i < 8; i++) {
         PORTD &= (0 << PD4);
         PORTD |= (1 << PD4);
     }
@@ -684,8 +687,6 @@ void setup() {
     // store current state of PORTB pins for button interrupts
     PINB_lastState = PINB;
 
-    // startupAnim();
-
     // get mode from non-volatile memory
     mode = EEPROM.read(eeModeAddr);
 
@@ -725,17 +726,17 @@ ISR (TIMER2_COMPA_vect) {
     }
 
     // output data to shift registers
-    for (int j = 0; j < 8; j++) {
+    for (uint8_t j = 0; j < 8; j++) {
         // set clock low
         PORTD &= (0 << PD4);
 
-        PORTB &= B11111000;
+        PORTB &= 0b11111000;
 
         PORTB |= (((sr1 >> j) & 1) << 2);
         PORTB |= (((sr2 >> j) & 1) << 1);
         PORTB |= ((sr3 >> j) & 1);
 
-        PORTD &= B00011111;
+        PORTD &= 0b00011111;
 
         PORTD |= (((sr4 >> j) & 1) << 7);
         PORTD |= (((sr5 >> j) & 1) << 6);
@@ -809,7 +810,7 @@ void loop() {
             scrollTextIfLong("HELLO WORLD!", LAYER_FRONT);
             break;
         case 1:
-            scrollText("HELLO WORLD!", LAYER_FRONT, true);
+            scrollTextBothLayers("HELLO WORLD!", true);
             break;
         case 2:
             pacman();
@@ -871,8 +872,11 @@ void loop() {
             break;
         case 7:
             scrollText("GOD IS GOOD ", LAYER_FRONT, false);
+            if (modeChanged) break;
             scrollText("ALL THE TIME ", LAYER_BACK, false);
+            if (modeChanged) break;
             scrollText("AND ALL THE TIME ", LAYER_FRONT, false);
+            if (modeChanged) break;
             scrollText("GOD IS GOOD!", LAYER_BACK, true);
             break;
         default:
@@ -889,14 +893,16 @@ void loop() {
 //  Text effects
 // ================
 
-// shows the number of the current mode
+// Shows the number of the current mode.
 void displayMode() {
     fillMatrix(0);
     displayText(String(mode), LAYER_FRONT, 2);
 }
 
-// if text wider than matrix, scroll text, else display statically
+// Displays text.
+// If text is wider than matrix, scrolls text, else displays statically.
 void scrollTextIfLong(String message, uint8_t z) {
+    // calculate pixel width of text
     uint16_t len = 0;
     for (char c : message) {
         len += asciiLen[c - ' '] + 1;
@@ -909,43 +915,48 @@ void scrollTextIfLong(String message, uint8_t z) {
     }
 }
 
-// shows static text
+// Shows static text.
 void displayText(String message, uint8_t z, uint8_t startX) {
     uint8_t x;
 
+    // clear matrix left of text
     for (x = 0; x < startX; x++) {
         setColOff(x, z);
     }
 
+    // display each char
     for (char c : message) {
         for (uint8_t i = 0; i < asciiLen[c - ' ']; i++) {
             setColForChar(c, i, x, z);
             x++;
         }
+        // one col space between each char
         setColOff(x, z);
         x++;
     }
 
+    // clear matrix right of text
     for (; x < 32; x++) {
         setColOff(x, z);
     }
 }
 
-// scrolls text from right to left
+// Scrolls text from right to left.
 void scrollText(String message, uint8_t z, bool scrollOut) {
     uint16_t frameDelay = 120;
 
     for (char c : message) {
-
         // add each column of the char to the matrix
-        for (int i = 0; i < asciiLen[c - ' ']; i++) {
-            addNextColToMatrix(c, i, z);
+        for (uint8_t i = 0; i < asciiLen[c - ' ']; i++) {
+            addColOfCharToMatrixR(c, i, z);
 
             if (modeChanged) return;
             delay(frameDelay);
             shiftMatrixL();
         }
 
+        // two cols space between each char, 
+        // this is easier to read than one when scrolling
         if (modeChanged) return;
         delay(frameDelay);
         shiftMatrixL();
@@ -959,21 +970,24 @@ void scrollText(String message, uint8_t z, bool scrollOut) {
     }
 }
 
+// Scrolls text from right to left on both layers.
+// This gives a "3D" effect.
 void scrollTextBothLayers(String message, bool scrollOut) {
     uint16_t frameDelay = 120;
 
     for (char c : message) {
-
         // add each column of the char to the matrix
-        for (int i = 0; i < asciiLen[c - ' ']; i++) {
-            addNextColToMatrix(c, i, LAYER_FRONT);
-            addNextColToMatrix(c, i, LAYER_BACK);
+        for (uint8_t i = 0; i < asciiLen[c - ' ']; i++) {
+            addColOfCharToMatrixR(c, i, LAYER_FRONT);
+            addColOfCharToMatrixR(c, i, LAYER_BACK);
             
             if (modeChanged) return;
             delay(frameDelay);
             shiftMatrixL();
         }
 
+        // two cols space between each char, 
+        // this is easier to read than one when scrolling
         if (modeChanged) return;
         delay(frameDelay);
         shiftMatrixL();
@@ -987,6 +1001,7 @@ void scrollTextBothLayers(String message, bool scrollOut) {
     }
 }
 
+// Sets a single col of a character to a col in the matrix.
 void setColForChar(char c, uint8_t col, uint8_t x, uint8_t z) {
     c -= ' ';
 
@@ -995,91 +1010,74 @@ void setColForChar(char c, uint8_t col, uint8_t x, uint8_t z) {
     }
 }
 
-void addNextColToMatrix(char c, uint8_t col, uint8_t z) {
-    matrix[z][0][1] |= (ascii[c - ' '][5] >> (asciiLen[c - ' '] - 1 - col));
-    matrix[z][1][1] |= (ascii[c - ' '][4] >> (asciiLen[c - ' '] - 1 - col));
-    matrix[z][2][1] |= (ascii[c - ' '][3] >> (asciiLen[c - ' '] - 1 - col));
-    matrix[z][3][1] |= (ascii[c - ' '][2] >> (asciiLen[c - ' '] - 1 - col));
-    matrix[z][4][1] |= (ascii[c - ' '][1] >> (asciiLen[c - ' '] - 1 - col));
-    matrix[z][5][1] |= (ascii[c - ' '][0] >> (asciiLen[c - ' '] - 1 - col));
+// Sets a single col of a character to the last col in the matrix.
+// See setColForChar()
+void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
+    setColForChar(c, col, 31, z);
 }
 
 // =======================
 //  Animation Effects
 // =======================
 
-void startupAnim() {
-    fillMatrix(0);
-    boxOutline(0, 0, 31, 5, LAYER_FRONT);
-    boxOutline(0, 0, 31, 5, LAYER_BACK);
-    delay(500);
-
-    fillMatrix(0);
-    boxOutline(1, 1, 30, 4, LAYER_FRONT);
-    boxOutline(1, 1, 30, 4, LAYER_BACK);
-    delay(500);
-    
-    fillMatrix(0);
-    boxOutline(2, 2, 29, 3, LAYER_FRONT);
-    boxOutline(2, 2, 29, 3, LAYER_BACK);
-    delay(500);
-
-    fillMatrix(0);
-    delay(500);
-}
-
+// Wipe effect in the given direction.
 void wipe(uint8_t direction) {
+    uint8_t xDelay = 20;
+    uint8_t yDelay = 70;
     // horizontal
     if (direction == DIR_L_TO_R) {
         for (uint8_t x = 0; x < 32; x++) {
             setColBothLayers(x, 1);
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
         for (uint8_t x = 0; x < 32; x++) {
             setColBothLayers(x, 0);
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
     } else if (direction == DIR_R_TO_L) {
         for (int8_t x = 31; x >= 0; x--) {
             setColBothLayers(x, 1);
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
         for (int8_t x = 31; x >= 0; x--) {
             setColBothLayers(x, 0);
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
     // vertical
     } else if (direction == DIR_B_TO_T) {
         for (uint8_t y = 0; y < 6; y++) {
             setRowBothLayers(y, 1);
             if (modeChanged) return;
-            delay(70);
+            delay(yDelay);
         }
         for (uint8_t y = 0; y < 6; y++) {
             setRowBothLayers(y, 0);
             if (modeChanged) return;
-            delay(70);
+            delay(yDelay);
         }
     } else if (direction == DIR_T_TO_B) {
         for (int8_t y = 5; y >= 0; y--) {
             setRowBothLayers(y, 1);
             if (modeChanged) return;
-            delay(70);
+            delay(yDelay);
         }
         for (int8_t y = 5; y >= 0; y--) {
             setRowBothLayers(y, 0);
             if (modeChanged) return;
-            delay(70);
+            delay(yDelay);
         }
     }
 }
 
+// Diagonal wipe effect in the given direction.
 void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
     uint8_t width = 28;
+    uint8_t xDelay = 20;
+    // bottom left -> top right
     if (xDirection == DIR_L_TO_R && yDirection == DIR_B_TO_T) {
         for (int8_t x = 0; x < 42 + width; x++) {
             for (uint8_t y = 0; y < 6; y++) {
@@ -1087,8 +1085,9 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
                 setVoxelOff(x - width - (2 * y), y, LAYER_FRONT);
             }
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
+    // top left -> bottom right
     } else if (xDirection == DIR_L_TO_R && yDirection == DIR_T_TO_B) {
         for (int8_t x = 0; x < 42 + width; x++) {
             for (uint8_t y = 0; y < 6; y++) {
@@ -1096,8 +1095,9 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
                 setVoxelOff(x - width - (2 * (5 - y)), y, LAYER_FRONT);
             }
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
+    // bottom right -> top left
     } else if (xDirection == DIR_R_TO_L && yDirection == DIR_B_TO_T) {
         for (int8_t x = 41 + width; x >= 0; x--) {
             for (uint8_t y = 0; y < 6; y++) {
@@ -1105,8 +1105,9 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
                 setVoxelOff(x - (2 * y), y, LAYER_FRONT);
             }
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
+    // top right -> bottom left
     } else if (xDirection == DIR_R_TO_L && yDirection == DIR_T_TO_B) {
         for (int8_t x = 41 + width; x >= 0; x--) {
             for (uint8_t y = 0; y < 6; y++) {
@@ -1114,7 +1115,7 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
                 setVoxelOff(x - (2 * (5 - y)), y, LAYER_FRONT);
             }
             if (modeChanged) return;
-            delay(20);
+            delay(xDelay);
         }
     }
 }
@@ -1123,85 +1124,84 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
 //  PacMan animation
 // ============================
 
+// Displays the PacMan animation.
 void pacman() {
-    int frameDelay = 400;
+    uint16_t frameDelay = 300;
 
     fillLayer(LAYER_FRONT, 0);
 
-    drawPacDots(DIR_L_TO_R);
     pacmanScrollLtoR(frameDelay);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 
-    drawPacDots(DIR_R_TO_L);
     pacmanScrollRtoL(frameDelay);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 
-    drawPacDots(DIR_L_TO_R);
     pacmanScrollLtoRwGhosts(frameDelay, 2, 12);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 
-    drawPacDots(DIR_R_TO_L);
     pacmanScrollRtoLwGhosts(frameDelay, 2, 12);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 
     pacmanEatGhost(frameDelay);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 
-    drawPacDots(DIR_R_TO_L);
     pacmanScrollRtoL(frameDelay);
-
     if (modeChanged) return;
     delay(frameDelay * 4);
 }
 
-void pacmanScrollLtoR(int frameDelay) {
-    uint8_t shape = 1;
+// PacMan goes from left to right, eating pacdots along the way.
+void pacmanScrollLtoR(uint16_t frameDelay) {
+    drawPacDots(DIR_L_TO_R);
+
+    uint8_t shapeI = 1;
     for (int8_t x = -5; x < 33; x++) {
-        drawPacmanShape(x, LAYER_FRONT, shape, DIR_L_TO_R);
+        drawPacmanShape(x, LAYER_FRONT, shapeI, DIR_L_TO_R);
         setColOff(x - 1, LAYER_FRONT);
         setVoxelOff(x + 3, PACDOT_HEIGHT, LAYER_BACK);
 
         if (modeChanged) return;
         delay(frameDelay);
-        shape++;
-        if (shape == 2) {
-            shape = 0;
+        shapeI++;
+        if (shapeI == 2) {
+            shapeI = 0;
         }
     }
 }
 
-void pacmanScrollRtoL(int frameDelay) {
-    uint8_t shape = 1;
+// PacMan goes from right to left, eating pacdots along the way.
+void pacmanScrollRtoL(uint16_t frameDelay) {
+    drawPacDots(DIR_R_TO_L);
+
+    uint8_t shapeI = 1;
     for (int8_t x = 32; x >= -5; x--) {
-        drawPacmanShape(x, LAYER_FRONT, shape, DIR_R_TO_L);
+        drawPacmanShape(x, LAYER_FRONT, shapeI, DIR_R_TO_L);
         setColOff(x + pacmanShapeLen, LAYER_FRONT);
         setVoxelOff(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 
         if (modeChanged) return;
         delay(frameDelay);
-        shape++;
-        if (shape == 2) shape = 0;
+        shapeI++;
+        if (shapeI == 2) shapeI = 0;
     }
 }
 
-void pacmanScrollLtoRwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
+// PacMan goes from left to right, eating pacdots along the way, being chased by ghosts.
+void pacmanScrollLtoRwGhosts(uint16_t frameDelay, uint8_t numGhosts, uint8_t gap) {
+    drawPacDots(DIR_L_TO_R);
+
     // max 4 ghosts
     if (numGhosts > 4) numGhosts == 4;
 
-    uint8_t pacShape = 1;
+    uint8_t pacShapeI = 1;
     for (int8_t x = -5; x < 31 + gap + numGhosts * (pacmanGhostShapeLen + 2); x++) {
         // draw pacman
-        drawPacmanShape(x, LAYER_FRONT, pacShape, DIR_L_TO_R);
+        drawPacmanShape(x, LAYER_FRONT, pacShapeI, DIR_L_TO_R);
         setColOff(x - 1, LAYER_FRONT);
         setVoxelOff(x + 3, PACDOT_HEIGHT, LAYER_BACK);
 
@@ -1217,19 +1217,22 @@ void pacmanScrollLtoRwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
 
         if (modeChanged) return;
         delay(frameDelay);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
     }
 }
 
-void pacmanScrollRtoLwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
+// PacMan goes from right to left, eating pacdots along the way, being chased by ghosts.
+void pacmanScrollRtoLwGhosts(uint16_t frameDelay, uint8_t numGhosts, uint8_t gap) {
+    drawPacDots(DIR_R_TO_L);
+
     // max 4 ghosts
     if (numGhosts > 4) numGhosts == 4;
 
-    uint8_t pacShape = 1;
+    uint8_t pacShapeI = 1;
     for (int8_t x = 32; x >= -3 - gap - numGhosts * (pacmanGhostShapeLen + 2); x--) {
         // draw pacman
-        drawPacmanShape(x, LAYER_FRONT, pacShape, DIR_R_TO_L);
+        drawPacmanShape(x, LAYER_FRONT, pacShapeI, DIR_R_TO_L);
         setColOff(x + pacmanShapeLen, LAYER_FRONT);
         setVoxelOff(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 
@@ -1238,6 +1241,7 @@ void pacmanScrollRtoLwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
         uint8_t ghostLayer;
         for (uint8_t i = 0; i < numGhosts; i++) {
             ghostPos = x + gap + pacmanShapeLen + i * (pacmanGhostShapeLen + 2);
+            // alternate ghosts on front and back layer
             ghostLayer = i % 2 == 0 ? LAYER_FRONT : LAYER_BACK;
             drawGhostShape(ghostPos, ghostLayer);
             setColOff(ghostPos + pacmanGhostShapeLen, ghostLayer);
@@ -1245,22 +1249,23 @@ void pacmanScrollRtoLwGhosts(int frameDelay, uint8_t numGhosts, uint8_t gap) {
 
         if (modeChanged) return;
         delay(frameDelay);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
     }
 }
 
-void pacmanEatGhost(int frameDelay) {
+// PacMan goes from left to right, eats a power pellet, then eats the ghost chasing him.
+void pacmanEatGhost(uint16_t frameDelay) {
     drawPacDots(DIR_L_TO_R, 6);
 
     int8_t pacX = -6;
     int8_t ghostX = -21;
 
-    uint8_t pacShape = 1;
+    uint8_t pacShapeI = 1;
     while (pacX < 23) {
         // draw pacman
         pacX++;
-        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_L_TO_R);
+        drawPacmanShape(pacX, LAYER_FRONT, pacShapeI, DIR_L_TO_R);
         setColOff(pacX - 1, LAYER_FRONT);
         if (pacX < 22) {
             setVoxelOff(pacX + 3, PACDOT_HEIGHT, LAYER_BACK);
@@ -1278,10 +1283,11 @@ void pacmanEatGhost(int frameDelay) {
 
         if (modeChanged) return;
         delay(frameDelay);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
     }
 
+    // move ghost while pacman stopped
     for (uint8_t i = 0; i < 2; i++) {
         ghostX++;
         drawGhostShape(ghostX, LAYER_FRONT);
@@ -1291,6 +1297,7 @@ void pacmanEatGhost(int frameDelay) {
         delay(frameDelay);
     }
 
+    // pacman flash from power pellet, ghost keeps moving
     for (uint8_t i = 0; i < 3; i++) {
         drawPacmanShape(pacX, LAYER_FRONT, 2, DIR_L_TO_R);
         ghostX++;
@@ -1308,26 +1315,27 @@ void pacmanEatGhost(int frameDelay) {
     if (modeChanged) return;
     delay(frameDelay * 2);
 
-    pacShape = 0;
+    // pacman chases ghost
+    pacShapeI = 0;
     for (uint8_t i = 0; i < 5; i++) {
         ghostX--;
         drawGhostShape(ghostX, LAYER_FRONT);
         setColOff(ghostX + pacmanGhostShapeLen, LAYER_FRONT);
 
         pacX--;
-        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+        drawPacmanShape(pacX, LAYER_FRONT, pacShapeI, DIR_R_TO_L);
         setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
 
         if (modeChanged) return;
         delay(frameDelay / 2);
 
         pacX--;
-        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+        drawPacmanShape(pacX, LAYER_FRONT, pacShapeI, DIR_R_TO_L);
         setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
 
         if (modeChanged) return;
         delay(frameDelay / 2);
@@ -1338,13 +1346,14 @@ void pacmanEatGhost(int frameDelay) {
     setColOff(ghostX + pacmanGhostShapeLen, LAYER_FRONT);
 
     pacX--;
-    pacShape = 0;
-    drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_R_TO_L);
+    pacShapeI = 0;
+    drawPacmanShape(pacX, LAYER_FRONT, pacShapeI, DIR_R_TO_L);
     setColOff(pacX + pacmanShapeLen, LAYER_FRONT);
 
     if (modeChanged) return;
     delay(frameDelay);
 
+    // ghost dies and disappears
     for (uint8_t i = 0; i < 10; i++) {
         if (i < 6) {
             matrix[LAYER_FRONT][5 - i][0] |= line(ghostX, ghostX + pacmanGhostShapeLen - 1);
@@ -1356,55 +1365,64 @@ void pacmanEatGhost(int frameDelay) {
         delay(100);
     }
 
-    pacShape = 1;
+    // pacman moves off matrix to right
+    pacShapeI = 1;
     while (pacX < 32) {
         pacX++;
-        drawPacmanShape(pacX, LAYER_FRONT, pacShape, DIR_L_TO_R);
+        drawPacmanShape(pacX, LAYER_FRONT, pacShapeI, DIR_L_TO_R);
         setColOff(pacX - 1, LAYER_FRONT);
         setVoxelOff(pacX + 3, PACDOT_HEIGHT, LAYER_BACK);
 
         if (modeChanged) return;
         delay(frameDelay);
-        pacShape++;
-        if (pacShape == 2) pacShape = 0;
+        pacShapeI++;
+        if (pacShapeI == 2) pacShapeI = 0;
     }
 }
 
+// Draws pacdots in the given direction on the back layer.
 void drawPacDots(uint8_t direction) {
+    int16_t frameDelay = 100;
     if (direction == DIR_L_TO_R) {
-        for (int8_t x = 2; x < WIDTH; x += PACDOT_SPACING) {
+        for (int8_t x = 2; x < 32; x += PACDOT_SPACING) {
             setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
             if (modeChanged) return;
-            delay(100);
+            delay(frameDelay);
         }
     } else if (direction == DIR_R_TO_L) {
         for (int8_t x = 29; x >= 0; x -= PACDOT_SPACING) {
             setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
             if (modeChanged) return;
-            delay(100);
+            delay(frameDelay);
         }
     }
 }
 
+// Draws pacdots in the given direction on the back layer, 
+// with the specified dot being a power pellet.
 void drawPacDots(uint8_t direction, uint8_t bigDotPos) {
     uint8_t x;
+    int16_t frameDelay = 100;
     for (int8_t dotI = 0; dotI < 8; dotI++) {
         if (direction == DIR_L_TO_R) {
             x = 2 + (dotI * PACDOT_SPACING);
         } else if (direction == DIR_R_TO_L) {
             x = 29 - (dotI * PACDOT_SPACING);
         }
+        // draw power pellet
         if (dotI == bigDotPos) {
-            drawPacDotBig(x);
+            drawPacDotPowerPellet(x);
+        // draw normal pacdot
         } else {
             setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
         }
         if (modeChanged) return;
-        delay(100);
+        delay(frameDelay);
     }
 }
 
-void drawPacDotBig(uint8_t x) {
+// Draws a power pellet at the given x pos.
+void drawPacDotPowerPellet(uint8_t x) {
     setVoxelOn(x, PACDOT_HEIGHT - 1, LAYER_BACK);
     setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
     setVoxelOn(x, PACDOT_HEIGHT + 1, LAYER_BACK);
@@ -1412,7 +1430,9 @@ void drawPacDotBig(uint8_t x) {
     setVoxelOn(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 }
 
-void drawPacmanShape(int x, uint8_t z, uint8_t shape, uint8_t direction) {
+// Draws pacman at the given x pos. 
+// The x pos corresponds to the left-most col of the shape.
+void drawPacmanShape(int8_t x, uint8_t z, uint8_t shape, uint8_t direction) {
     // check x range
     if (x < 1 - pacmanShapeLen || x >= 32) {
         return;
@@ -1427,16 +1447,19 @@ void drawPacmanShape(int x, uint8_t z, uint8_t shape, uint8_t direction) {
     }
 }
 
-void drawGhostShape(int x, uint8_t z) {
+// Draws a ghost at the given x pos.
+// The x pos corresponds to the left-most col of the shape.
+void drawGhostShape(int8_t x, uint8_t z) {
     if (x < 1 - pacmanGhostShapeLen || x >= 32) {
         return;
     }
 
     for (uint8_t col = 0; col < pacmanGhostShapeLen; col++) {
-        setColForShape(pacmanGhostShapes[0], pacmanGhostShapeLen, col, x + col, z);
+        setColForShape(pacmanGhostShape, pacmanGhostShapeLen, col, x + col, z);
     }
 }
 
+// Sets a single col of a shape to a col in the matrix.
 void setColForShape(uint8_t shape[6], uint8_t len, uint8_t col, uint8_t x, uint8_t z) {
     for (uint8_t i = 0; i < 6; i++) {
         setVoxel(x, i, z, (shape[5 - i] >> len - 1 - col) & 1);
@@ -1447,6 +1470,7 @@ void setColForShape(uint8_t shape[6], uint8_t len, uint8_t col, uint8_t x, uint8
 //  General drawing functions
 // ==============================================
 
+// Shifts the entire contents of the matrix one space to the left. 
 void shiftMatrixL() {
     for (uint8_t i = 0; i < 2; i++) {
         for (uint8_t j = 0; j < 6; j++) {
@@ -1458,31 +1482,36 @@ void shiftMatrixL() {
     }
 }
 
-void scrollMatrixOutL(int delayTime) {
-    for (int i = 0; i < 32; i++) {
+// Shifts the entire matrix to the left 32 times, to clear it.
+void scrollMatrixOutL(uint16_t delayTime) {
+    for (uint8_t i = 0; i < 32; i++) {
+        shiftMatrixL();
         if (modeChanged) return;
         delay(delayTime);
-        shiftMatrixL();
     }
 }
 
-// range validation
+// X range validation
 bool isInRangeX(uint8_t x) {
     return (x >= 0 && x < 32);
 }
 
+// Y range validation
 bool isInRangeY(uint8_t y) {
     return (y >= 0 && y < 6);
 }
 
+// Z range validation
 bool isInRangeZ(uint8_t z) {
     return (z >= 0 && z < 2);
 }
 
+// Validates range of (x, y, z) coordinate
 bool isInRange(uint8_t x, uint8_t y, uint8_t z) {
     return (isInRangeX(x) && isInRangeY(y) && isInRangeZ(z));
 }
 
+// Sets the voxel at the given position on
 void setVoxelOn(uint8_t x, uint8_t y, uint8_t z) {
     if (isInRange(x, y, z)) {
         if (x > 15) {
@@ -1493,6 +1522,7 @@ void setVoxelOn(uint8_t x, uint8_t y, uint8_t z) {
     }
 }
 
+// Sets the voxel at the given position off
 void setVoxelOff(uint8_t x, uint8_t y, uint8_t z) {
     if (isInRange(x, y, z)) {
         if (x > 15) {
@@ -1503,6 +1533,7 @@ void setVoxelOff(uint8_t x, uint8_t y, uint8_t z) {
     }
 }
 
+// Sets the voxel at the given position to the given state.
 void setVoxel(uint8_t x, uint8_t y, uint8_t z, uint8_t state) {
     if (state) {
         setVoxelOn(x, y, z);
@@ -1511,6 +1542,7 @@ void setVoxel(uint8_t x, uint8_t y, uint8_t z, uint8_t state) {
     }
 }
 
+// Flips the state of a voxel
 void flipVoxel(uint8_t x, uint8_t y, uint8_t z) {
     if (isInRange(x, y, z)) {
         if (x > 15) {
@@ -1521,6 +1553,7 @@ void flipVoxel(uint8_t x, uint8_t y, uint8_t z) {
     }
 }
 
+// Sets the given row on
 void setRowOn(uint8_t y, uint8_t z) {
     if (isInRangeY(y) && isInRangeY(y)) {
         matrix[z][y][0] = 0xffff;
@@ -1528,6 +1561,7 @@ void setRowOn(uint8_t y, uint8_t z) {
     }
 }
 
+// Sets the given row off
 void setRowOff(uint8_t y, uint8_t z) {
     if (isInRangeY(y) && isInRangeY(y)) {
         matrix[z][y][0] = 0x0000;
@@ -1535,6 +1569,7 @@ void setRowOff(uint8_t y, uint8_t z) {
     }
 }
 
+// Sets the given row to the given state
 void setRow(uint8_t y, uint8_t z, uint8_t state) {
     if (state) {
         setRowOn(y, z);
@@ -1543,6 +1578,7 @@ void setRow(uint8_t y, uint8_t z, uint8_t state) {
     }
 }
 
+// Sets the given row on both layers to the given state
 void setRowBothLayers(uint8_t y, uint8_t state) {
     if (state) {
         setRowOn(y, LAYER_FRONT);
@@ -1553,6 +1589,7 @@ void setRowBothLayers(uint8_t y, uint8_t state) {
     }
 }
 
+// Sets the given col on
 void setColOn(uint8_t x, uint8_t z) {
     if (isInRangeX(x) && isInRangeZ(z)) {
         
@@ -1568,6 +1605,7 @@ void setColOn(uint8_t x, uint8_t z) {
     }
 }
 
+// Sets the given col off
 void setColOff(uint8_t x, uint8_t z) {
     if (isInRangeX(x) && isInRangeZ(z)) {
         
@@ -1583,6 +1621,7 @@ void setColOff(uint8_t x, uint8_t z) {
     }
 }
 
+// Sets the given col to the given state
 void setCol(uint8_t x, uint8_t z, uint8_t state) {
     if (state) {
         setColOn(x, z);
@@ -1591,6 +1630,7 @@ void setCol(uint8_t x, uint8_t z, uint8_t state) {
     }
 }
 
+// Sets the given col on both layers to the given state
 void setColBothLayers(uint8_t x, uint8_t state) {
     if (state) {
         setColOn(x, LAYER_FRONT);
@@ -1601,7 +1641,7 @@ void setColBothLayers(uint8_t x, uint8_t state) {
     }
 }
 
-// fills the matrix with the given 8-bit pattern
+// Fills the matrix with the given 8-bit pattern
 void fillMatrix(uint8_t pattern) {
     for (uint8_t z = 0; z < 2; z++) {
         for (uint8_t y = 0; y < 6; y++) {
@@ -1611,7 +1651,7 @@ void fillMatrix(uint8_t pattern) {
     }
 }
 
-// fills the given layer with the given 8-bit pattern
+// Fills the given layer with the given 8-bit pattern
 void fillLayer(uint8_t z, uint8_t pattern) {
     for (uint8_t y = 0; y < 6; y++) {
         matrix[z][y][0] = (pattern << 8) | pattern;
@@ -1619,12 +1659,13 @@ void fillLayer(uint8_t z, uint8_t pattern) {
     }
 }
 
+// Fills the given row with the given 8-bit pattern
 void fillRow(uint8_t y, uint8_t z, uint8_t pattern) {
     matrix[z][y][0] = (pattern << 8) | pattern;
     matrix[z][y][1] = (pattern << 8) | pattern;
 }
 
-// makes sure x1 > x2
+// Makes sure x1 < x2
 void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
     if (x1 > x2) {
         uint8_t temp = x1;
@@ -1635,6 +1676,7 @@ void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
     *p2 = x2;
 }
 
+// Draws the outline of a box, between (x1, y1) and (x2, y2);
 void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
 
     setBytesAscOrder(x1, x2, &x1, &x2);
@@ -1652,10 +1694,12 @@ void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
     }
 }
 
+// Returns the 16-bit pattern for a line between start and end
 uint16_t line(uint8_t start, uint8_t end) {
     return ((0xffff >> start) & ~(0xffff >> (end + 1)));
 }
 
+// Returns the first half of the 32-bit pattern for a line between start and end
 uint16_t line0(uint8_t start, uint8_t end) {
     if (start > 15) {
         return 0;
@@ -1666,6 +1710,7 @@ uint16_t line0(uint8_t start, uint8_t end) {
     return line(start, end);
 }
 
+// Returns the second half of the 32-bit pattern for a line between start and end
 uint16_t line1(uint8_t start, uint8_t end) {
     if (end < 16) {
         return 0;
