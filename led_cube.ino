@@ -9,8 +9,10 @@
 
 #define DIR_L_TO_R 0
 #define DIR_R_TO_L 1
-#define DIR_T_TO_B 3
-#define DIR_B_TO_T 4
+#define DIR_T_TO_B 2
+#define DIR_B_TO_T 3
+#define DIR_F_TO_B 4
+#define DIR_B_TO_F 5
 
 #define PACDOT_SPACING 4
 #define PACDOT_HEIGHT 2
@@ -615,6 +617,13 @@ uint8_t pacmanGhostShape[6] = {
 
 uint8_t pacmanGhostShapeLen = 5;
 
+class Patterns {
+    public:
+
+    //TODO use a class to update patterns rather than checking for mode change before every delay
+    // probs use millis() to have correct delay in animations
+};
+
 void setup() {
     
     // set PORTD input/output modes
@@ -692,6 +701,8 @@ void setup() {
 
     displayMode();
     modeChanged = true;
+
+    randomSeed(analogRead(0));
 }
 
 // interrupt routine for timer 2
@@ -732,15 +743,11 @@ ISR (TIMER2_COMPA_vect) {
 
         PORTB &= 0b11111000;
 
-        PORTB |= (((sr1 >> j) & 1) << 2);
-        PORTB |= (((sr2 >> j) & 1) << 1);
-        PORTB |= ((sr3 >> j) & 1);
+        PORTB |= (((sr1 >> j) & 1) << 2) | (((sr2 >> j) & 1) << 1) | ((sr3 >> j) & 1);
 
         PORTD &= 0b00011111;
 
-        PORTD |= (((sr4 >> j) & 1) << 7);
-        PORTD |= (((sr5 >> j) & 1) << 6);
-        PORTD |= (((sr6 >> j) & 1) << 5);
+        PORTD |= (((sr4 >> j) & 1) << 7) | (((sr5 >> j) & 1) << 6) | (((sr6 >> j) & 1) << 5);
 
         // set clock high to shift data
         PORTD |= (1 << PD4);
@@ -878,6 +885,15 @@ void loop() {
             scrollText("AND ALL THE TIME ", LAYER_FRONT, false);
             if (modeChanged) break;
             scrollText("GOD IS GOOD!", LAYER_BACK, true);
+            break;
+        case 8:
+            randomSnakeXYZ(24);
+            break;
+        case 9:
+            randomSnakeXYOneLayer(LAYER_FRONT, 8);
+            break;
+        case 10:
+            randomSnakeXYBothLayers(8);
             break;
         default:
             fillMatrix(0);
@@ -1118,6 +1134,212 @@ void wipeDiagonal(uint8_t xDirection, uint8_t yDirection) {
             delay(xDelay);
         }
     }
+}
+
+void randomSnakeXYZ(uint8_t snakeLen) {
+    if (snakeLen == 0) return;
+
+    uint16_t frameDelay = 20;
+    uint8_t x[snakeLen];
+    uint8_t y[snakeLen];
+    uint8_t z[snakeLen];
+    uint8_t dir = random(0, 6);
+
+    uint8_t randX = random(0, 32);
+    uint8_t randY = random(0, 6);
+    uint8_t randZ = random(0, 2);
+
+    for (uint8_t i = 0; i < snakeLen; i++) {
+        x[i] = randX;
+        y[i] = randY;
+        z[i] = randZ;
+    }
+
+    while (true) {
+        fillMatrix(0);
+        uint8_t tailX = x[snakeLen - 1];
+        uint8_t tailY = y[snakeLen - 1];
+        uint8_t tailZ = z[snakeLen - 1];
+        for (uint8_t i = snakeLen - 1; i > 0; i--) {
+            x[i] = x[i - 1];
+            y[i] = y[i - 1];
+            z[i] = z[i - 1];
+        }
+        if (dir == DIR_L_TO_R) {
+            x[0]++;
+        } else if (dir == DIR_R_TO_L) {
+            x[0]--;
+        } else if (dir == DIR_B_TO_T) {
+            y[0]++;
+        } else if (dir == DIR_T_TO_B) {
+            y[0]--;
+        } else if (dir == DIR_F_TO_B) {
+            z[0]++;
+        } else if (dir == DIR_B_TO_F) {
+            z[0]--;
+        }
+
+        for (uint8_t i = 0; i < snakeLen; i++) {
+            setVoxelOn(x[i], y[i], z[i]);
+        }
+
+        uint8_t newDir = dir;
+        uint8_t randNo = random(0, 10);
+        if (randNo < 3 || isNewDirectionOutOfMatrix(newDir, x[0], y[0], z[0])) {
+            bool validDir = false;
+            while (!validDir) {
+                newDir = random(0, 6);
+                validDir = true;
+                if (isNewDirectionReversed(dir, newDir)) validDir = false;
+                else if (isNewDirectionOutOfMatrix(newDir, x[0], y[0], z[0])) validDir = false;
+            }
+        }
+
+        dir = newDir;
+
+        if (modeChanged) return;
+        delay(frameDelay);
+    }
+}
+
+void randomSnakeXYOneLayer(uint8_t z, uint8_t snakeLen) {
+    if (snakeLen == 0) return;
+
+    uint16_t frameDelay = 20;
+    uint8_t x[snakeLen];
+    uint8_t y[snakeLen];
+    uint8_t dir = random(0, 4);
+
+    for (uint8_t i = 0; i < snakeLen; i++) {
+        x[i] = random(0, 32);
+        y[i] = random(0, 6);
+    }
+
+    while (true) {
+        fillMatrix(0);
+        uint8_t tailX = x[snakeLen - 1];
+        uint8_t tailY = y[snakeLen - 1];
+        for (uint8_t i = snakeLen - 1; i > 0; i--) {
+            x[i] = x[i - 1];
+            y[i] = y[i - 1];
+        }
+        if (dir == DIR_L_TO_R) {
+            x[0]++;
+        } else if (dir == DIR_R_TO_L) {
+            x[0]--;
+        } else if (dir == DIR_B_TO_T) {
+            y[0]++;
+        } else if (dir == DIR_T_TO_B) {
+            y[0]--;
+        }
+
+        for (uint8_t i = 0; i < snakeLen; i++) {
+            setVoxelOn(x[i], y[i], z);
+        }
+
+        uint8_t newDir = dir;
+        uint8_t randNo = random(0, 10);
+        if (randNo < 3 || isNewDirectionOutOfMatrix(newDir, x[0], y[0])) {
+            bool validDir = false;
+            while (!validDir) { 
+                newDir = random(0, 4);
+                validDir = true;
+                if (isNewDirectionReversed(dir, newDir)) validDir = false;
+                else if (isNewDirectionOutOfMatrix(newDir, x[0], y[0])) validDir = false;
+            }
+        }
+
+        dir = newDir;
+
+        if (modeChanged) return;
+        delay(frameDelay);
+    }
+}
+
+void randomSnakeXYBothLayers(uint8_t snakeLen) {
+    if (snakeLen == 0) return;
+
+    uint16_t frameDelay = 20;
+    uint8_t x[2][snakeLen];
+    uint8_t y[2][snakeLen];
+    uint8_t dir[2];
+
+    for (uint8_t z = 0; z < 2; z++) {
+        for (uint8_t i = 0; i < snakeLen; i++) {
+            x[z][i] = random(0, 32);
+            y[z][i] = random(0, 6);
+        }
+        dir[z] = random(0, 4);
+    }
+
+    
+    while (true) {
+        fillMatrix(0);
+
+        for (uint8_t z = 0; z < 2; z++) {
+            uint8_t tailX = x[z][snakeLen - 1];
+            uint8_t tailY = y[z][snakeLen - 1];
+            for (uint8_t i = snakeLen - 1; i > 0; i--) {
+                x[z][i] = x[z][i - 1];
+                y[z][i] = y[z][i - 1];
+            }
+            if (dir[z] == DIR_L_TO_R) {
+                x[z][0]++;
+            } else if (dir[z] == DIR_R_TO_L) {
+                x[z][0]--;
+            } else if (dir[z] == DIR_B_TO_T) {
+                y[z][0]++;
+            } else if (dir[z] == DIR_T_TO_B) {
+                y[z][0]--;
+            }
+
+            for (uint8_t i = 0; i < snakeLen; i++) {
+                setVoxelOn(x[z][i], y[z][i], z);
+            }
+
+            uint8_t newDir = dir[z];
+            uint8_t randNo = random(0, 10);
+            if (randNo < 3 || isNewDirectionOutOfMatrix(newDir, x[z][0], y[z][0])) {
+                bool validDir = false;
+                while (!validDir) { 
+                    newDir = random(0, 4);
+                    validDir = true;
+                    if (isNewDirectionReversed(dir[z], newDir)) validDir = false;
+                    else if (isNewDirectionOutOfMatrix(newDir, x[z][0], y[z][0])) validDir = false;
+                }
+            }
+
+            dir[z] = newDir;
+        }
+
+        if (modeChanged) return;
+        delay(frameDelay);
+    }
+}
+
+bool isNewDirectionOutOfMatrix(uint8_t dir, uint8_t x, uint8_t y) {
+    return (dir == DIR_B_TO_T && y == 5) 
+            || (dir == DIR_T_TO_B && y == 0)
+            || (dir == DIR_L_TO_R && x == 31)
+            || (dir == DIR_R_TO_L && x == 0);
+}
+
+bool isNewDirectionOutOfMatrix(uint8_t dir, uint8_t x, uint8_t y, uint8_t z) {
+    return (dir == DIR_B_TO_T && y == 5) 
+            || (dir == DIR_T_TO_B && y == 0)
+            || (dir == DIR_L_TO_R && x == 31)
+            || (dir == DIR_R_TO_L && x == 0)
+            || (dir == DIR_F_TO_B && z == 1)
+            || (dir == DIR_B_TO_F && z == 0);
+}
+
+bool isNewDirectionReversed(uint8_t dir, uint8_t newDir) {
+    return (dir == DIR_L_TO_R && newDir == DIR_R_TO_L)
+            || (dir == DIR_R_TO_L && newDir == DIR_L_TO_R)
+            || (dir == DIR_B_TO_T && newDir == DIR_T_TO_B)
+            || (dir == DIR_T_TO_B && newDir == DIR_B_TO_T)
+            || (dir == DIR_F_TO_B && newDir == DIR_B_TO_F)
+            || (dir == DIR_B_TO_F && newDir == DIR_F_TO_B);
 }
 
 // ============================
