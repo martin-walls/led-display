@@ -1,7 +1,10 @@
-#include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+// #include <ESP8266WiFi.h>
+// #include <WiFiClient.h>
+// #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include <FS.h>
+// #include <ESPAsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
 
 // communication to arduino
 #define BAUDRATE 115200
@@ -24,24 +27,9 @@ const char *password = "golf-drift-key";
 const char *ARG_TEXT = "text";
 
 ESP8266WebServer server(80);
+// AsyncWebServer server(80);
 
 bool isMaster = false;
-
-const PROGMEM char indexHTML[] = R"rawliteral(
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Hello world</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>
-        <form action="/">
-            Display text: <input type="text" name="text">
-            <input type="submit" value="Submit">
-        </form>
-    </body>
-</html>
-)rawliteral";
 
 void setup() {
     pinMode(PIN_MASTER_SLAVE_MODE, INPUT);
@@ -67,7 +55,30 @@ void setup() {
     // Serial.println("IP address: ");
     // Serial.println(WiFi.localIP());
 
-    server.on("/", handleRoot);
+    SPIFFS.begin();
+
+    server.serveStatic("/", SPIFFS, "/index.html");
+    server.serveStatic("/style.css", SPIFFS, "/style.css");
+    server.serveStatic("/scripts.js", SPIFFS, "/scripts.js");
+
+    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //     request -> send(SPIFFS, "/index.html", "text/html");
+    // });
+
+    // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //     request -> send(SPIFFS, "/style.css", "text/css");
+    // });
+
+    // server.on("/scripts.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //     request -> send(SPIFFS, "/scripts.js", "text/javascript");
+    // });
+
+    // server.on("/text", HTTP_POST, [](AsyncWebServerRequest *request) {
+    //     digitalWrite(LED_BUILTIN, LOW);
+    // });
+
+    // server.on("/", handleRoot);
+    server.on("/text", handleTextMode);
 
     server.begin();
     // Serial.println("Server started");
@@ -97,17 +108,30 @@ void loop() {
 }
 
 void handleRoot() {
-    if (server.args() > 0) {
-        if (server.arg(ARG_TEXT) && isMaster) {
-            Serial.print(server.arg(ARG_TEXT));
-        }
-    }
+    // server.sendHeader("Location", "/text", true);
+    // server.send(302, "text/plain", "");
 
-    server.send(200, "text/html", indexHTML);
-    int ledState = 0;
-    for (int i = 0; i < 10; i++) {
-        digitalWrite(LED_BUILTIN, ledState);
-        ledState = !ledState;
-        delay(100);
-    }
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(200);
+    digitalWrite(LED_BUILTIN, HIGH);
+}
+
+void handleTextMode() {
+    // if (server.args() > 0) {
+    //     if (server.arg(ARG_TEXT) && isMaster) {
+    //         Serial.print(server.arg(ARG_TEXT));
+    //     }
+    // }
+
+    // server.send(200, "text/html", textHTML);
+
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(300);
+    digitalWrite(LED_BUILTIN, HIGH);
+
+    Serial.print(server.arg("plain"));
+}
+
+void handleEffectsMode() {
+
 }
