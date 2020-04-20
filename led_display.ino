@@ -42,6 +42,20 @@
 #define WIPE_DIAGONAL_ROW_OFFSET 2
 #define WIPE_DIAGONAL_WIDTH 28
 
+#define PACMAN_FRAMEDELAY 300
+#define PACDOT_FRAMEDELAY 100
+#define PACMAN_FLAG_PACMAN_SHAPE 0b000001
+#define PACMAN_FLAG_DIRECTION    0b000010
+#define PACMAN_FLAG_DIR_L_TO_R       0b00
+#define PACMAN_FLAG_DIR_R_TO_L       0b10
+#define PACMAN_FLAG_NUM_GHOSTS   0b011100
+#define PACMAN_FLAG_NUM_GHOSTS_LSHIFT 2
+#define PACMAN_GHOST_GAP 12
+
+#define PACMAN_BLANK_FRAME 0
+#define PACMAN_SCROLL 1
+#define PACMAN_SCROLL_GHOSTS 2
+
 #define PACDOT_SPACING 4
 #define PACDOT_HEIGHT 2
 
@@ -93,585 +107,22 @@ extern const uint8_t pacmanShapeLen;
 extern const uint8_t pacmanGhostShape[6];
 extern const uint8_t pacmanGhostShapeLen;
 
-class Display {
-    public:
 
-        uint8_t activeAnim = OFF;
-        uint8_t flags;
-        char text[64];
+uint8_t activeAnim = OFF;
+uint8_t animFlags;
+char text[64];
 
-        uint16_t frameDelay;
-        uint32_t lastFrameUpdate;
+uint16_t frameDelay;
+uint32_t lastFrameUpdate;
 
-        uint16_t totalSteps;
-        uint16_t curStep;
+uint16_t totalSteps;
+uint16_t curStep;
 
-        Display() {}
+uint8_t activeSubAnim;
+uint16_t subAnimTotalSteps;
+uint16_t subAnimCurStep;
+    
 
-        void update() {
-            if ((millis() - lastFrameUpdate) >= frameDelay) {
-                lastFrameUpdate = millis();
-                switch(activeAnim) {
-                    case TEXT_SCROLL:
-                        scrollTextUpdate();
-                        break;
-                    case TEXT_SCROLL_BOTH_LAYERS:
-                        scrollTextBothLayersUpdate();
-                        break;
-                    case WIPE:
-                        wipeUpdate();
-                        break;
-                    case WIPE_DIAGONAL:
-                        wipeDiagonalUpdate();
-                        break;
-                    case SNAKE:
-                    case PACMAN:
-                    case BOX_OUTLINE:
-                    default:
-                        break;
-                }
-            }
-        }
-
-        void incrementStep() {
-            curStep++;
-            if (curStep >= totalSteps) {
-                curStep = 0;
-            }
-        }
-
-        void off() {
-            activeAnim = OFF;
-            fillMatrix(0);
-        }
-
-// TEXT EFFECTS
-
-        // Shows the number of the current mode.
-        void displayMode() {
-            fillMatrix(0);
-            char modeChars[3];
-            itoa(mode, modeChars, 10);
-            displayText(modeChars, LAYER_FRONT, 2);
-        }
-
-        // Displays text.
-        // If text is wider than matrix, scrolls text, else displays statically.
-        void scrollTextIfLong(const char *message, uint8_t z) {
-            uint16_t len = calculateTextPixelWidth(message, false);
-
-            if (len > 32) {
-                scrollText(message, z);
-            } else {
-                displayText(message, z, 0);
-            }
-        }
-
-        // Displays text statically
-        void staticText(const char *message, uint8_t z, uint8_t startX) {
-            activeAnim = TEXT_STATIC;
-            strcpy(text, message);
-
-            displayText(message, z, startX);
-        }
-
-        void staticTextBothLayers(const char *message, uint8_t startX) {
-            activeAnim = TEXT_STATIC_BOTH_LAYERS;
-            strcpy(text, message);
-            
-            displayText(message, LAYER_FRONT, startX);
-            displayText(message, LAYER_BACK, startX);
-        }
-
-        // Scrolls text from right to left.
-        void scrollText(const char *message, uint8_t z) {
-            activeAnim = TEXT_SCROLL;
-            strcpy(text, message);
-            flags = 0;
-            flags |= (TEXT_SCROLL_FLAG_Z & z);
-
-            totalSteps = calculateTextPixelWidth(message, true) + 32;
-            curStep = 0;
-
-            frameDelay = TEXT_SCROLL_FRAME_DELAY;
-        }
-
-        void scrollTextUpdate() {
-            uint8_t z = (flags & TEXT_SCROLL_FLAG_Z) == TEXT_SCROLL_FLAG_Z;
-            int16_t x = 31 - curStep;
-            displayText(text, z, x);
-
-            incrementStep();
-        }
-
-        // Scrolls text from right to left on both layers.
-        // This gives a "3D" effect.
-        void scrollTextBothLayers(const char *message) {
-            activeAnim = TEXT_SCROLL_BOTH_LAYERS;
-            strcpy(text, message);
-            flags = 0;
-
-            totalSteps = calculateTextPixelWidth(message, true) + 32;
-            curStep = 0;
-
-            frameDelay = TEXT_SCROLL_FRAME_DELAY;
-        }
-
-        void scrollTextBothLayersUpdate() {
-            int16_t x = 31 - curStep;
-            displayText(text, LAYER_FRONT, x);
-            displayText(text, LAYER_BACK, x);
-
-            incrementStep();
-        }
-
-        uint16_t calculateTextPixelWidth(const char *message, bool scrolling) {
-            uint16_t len = 0;
-
-            const char *p;
-            p = message;
-            while (*p) {
-                len += asciiLen[*p - ' '];
-                if (scrolling) {
-                    len += 2;
-                } else {
-                    len++;
-                }
-                p++;
-            }
-
-            return len;
-        }
-
-        void displayText(const char *message, uint8_t z, int16_t startX) {
-            int16_t x;
-
-            if (startX > 0) {
-                // clear matrix left of text
-                for (x = 0; x < startX; x++) {
-                    setColOff(x, z);
-                }
-            } else {
-                x = startX;
-            }
-
-            // display each char
-            const char *p;
-            p = message;
-            while (*p) {
-                if (x >= 32) {
-                    break;
-                }
-                for (uint8_t i = 0; i < asciiLen[*p - ' ']; i++) {
-                    setColForChar(*p, i, x, z);
-                    x++;
-                }
-                // one col space between each char
-                setColOff(x, z);
-                x++;
-                p++;
-            }
-
-            // clear matrix right of text
-            while (x < 32) {
-                setColOff(x, z);
-                x++;
-            }
-        }
-
-        // Sets a single col of a character to a col in the matrix.
-        void setColForChar(char c, uint8_t col, uint8_t x, uint8_t z) {
-            c -= ' ';
-
-            for (uint8_t i = 0; i < 6; i++) {
-                setVoxel(x, i, z, (ascii[c][5 - i] >> (asciiLen[c] - 1 - col)) & 1);
-            }
-        }
-
-        // Sets a single col of a character to the last col in the matrix.
-        // See setColForChar()
-        void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
-            setColForChar(c, col, 31, z);
-        }
-
-// ANIMATION EFFECTS
-
-        void wipe(uint8_t direction) {
-            activeAnim = WIPE;
-            flags = 0;
-            flags |= direction;
-
-            if (direction & (DIR_L_TO_R | DIR_R_TO_L)) {
-                totalSteps = 65;
-                frameDelay = WIPE_FRAMEDELAY_X;
-            } else if (direction & (DIR_B_TO_T | DIR_T_TO_B)) {
-                totalSteps = 13;
-                frameDelay = WIPE_FRAMEDELAY_Y;
-            }
-
-            curStep = 0;
-        }
-
-        void wipeUpdate() {
-            // horizontal
-            if (flags & (DIR_L_TO_R | DIR_R_TO_L)) {
-                if (curStep <= 32) {
-                    for (uint8_t x = 0; x < 32; x++) {
-                        if (x < curStep) {
-                            if (flags & DIR_L_TO_R) {
-                                setColBothLayers(x, 1);
-                            } else {
-                                setColBothLayers(31 - x, 1);
-                            }
-                        } else {
-                            if (flags & DIR_L_TO_R) {
-                                setColBothLayers(x, 0);
-                            } else {
-                                setColBothLayers(31 - x, 0);
-                            }
-                        }
-                    }
-                } else {
-                    for (uint8_t x = 0; x < 32; x++) {
-                        if (x < (curStep - 32)) {
-                            if (flags & DIR_L_TO_R) {
-                                setColBothLayers(x, 0);
-                            } else {
-                                setColBothLayers(31 - x, 0);
-                            }
-                        } else {
-                            if (flags & DIR_L_TO_R) {
-                                setColBothLayers(x, 1);
-                            } else {
-                                setColBothLayers(31 - x, 1);
-                            }
-                        }
-                    }
-                }
-            // vertical
-            } else if (flags & (DIR_B_TO_T | DIR_T_TO_B)) {
-                if (curStep <= 6) {
-                    for (uint8_t y = 0; y < 6; y++) {
-                        if (y < curStep) {
-                            if (flags & DIR_B_TO_T) {
-                                setRowBothLayers(y, 1);
-                            } else {
-                                setRowBothLayers(5 - y, 1);
-                            }
-                        } else {
-                            if (flags & DIR_B_TO_T) {
-                                setRowBothLayers(y, 0);
-                            } else {
-                                setRowBothLayers(5 - y, 0);
-                            }
-                        }
-                    }
-                } else {
-                    for (uint8_t y = 0; y < 32; y++) {
-                        if (y < (curStep - 6)) {
-                            if (flags & DIR_B_TO_T) {
-                                setRowBothLayers(y, 0);
-                            } else {
-                                setRowBothLayers(5 - y, 0);
-                            }
-                        } else {
-                            if (flags & DIR_B_TO_T) {
-                                setRowBothLayers(y, 1);
-                            } else {
-                                setRowBothLayers(5 - y, 1);
-                            }
-                        }
-                    }
-                }
-            }
-
-            incrementStep();
-        }
-
-        void wipeDiagonal(uint8_t direction) {
-            activeAnim = WIPE_DIAGONAL;
-            flags = 0;
-            flags |= direction;
-
-            totalSteps = 32 + (5 * WIPE_DIAGONAL_ROW_OFFSET) + WIPE_DIAGONAL_WIDTH;
-            frameDelay = WIPE_DIAGONAL_FRAMEDELAY;
-            curStep = 0;
-        }
-
-        void wipeDiagonalUpdate() {
-            if ((flags & (DIR_L_TO_R | DIR_B_TO_T)) == (DIR_L_TO_R | DIR_B_TO_T)) {
-                for (uint8_t y = 0; y < 6; y++) {
-                    setVoxelOn(curStep - (2 * y), y, LAYER_FRONT);
-                    setVoxelOff(curStep - WIPE_DIAGONAL_WIDTH - (2 * y), y, LAYER_FRONT);
-                }
-            } else if ((flags & (DIR_L_TO_R | DIR_T_TO_B)) == (DIR_L_TO_R | DIR_T_TO_B)) {
-                for (uint8_t y = 0; y < 6; y++) {
-                    setVoxelOn(curStep - (2 * (5 - y)), y, LAYER_FRONT);
-                    setVoxelOff(curStep - WIPE_DIAGONAL_WIDTH - (2 * (5 - y)), y, LAYER_FRONT);
-                }
-            } else if ((flags & (DIR_R_TO_L | DIR_B_TO_T)) == (DIR_R_TO_L | DIR_B_TO_T)) {
-                for (uint8_t y = 0; y < 6; y++) {
-                    setVoxelOn((totalSteps - curStep - 1) - WIPE_DIAGONAL_WIDTH - (2 * (5 - y)), y, LAYER_FRONT);
-                    setVoxelOff((totalSteps - curStep - 1) - (2 * (5 - y)), y, LAYER_FRONT);
-                }
-            } else if ((flags & (DIR_R_TO_L | DIR_T_TO_B)) == (DIR_R_TO_L | DIR_T_TO_B)) {
-                for (uint8_t y = 0; y < 6; y++) {
-                    setVoxelOn((totalSteps - curStep - 1) - WIPE_DIAGONAL_WIDTH - (2 * y), y, LAYER_FRONT);
-                    setVoxelOff((totalSteps - curStep - 1) - (2 * y), y, LAYER_FRONT);
-                }
-            }
-
-            incrementStep();
-        }
-
-// GENERAL DRAWING FUNCTIONS
-
-        // Shifts the entire contents of the matrix one space to the left. 
-        // void shiftMatrixL() {
-        //     for (uint8_t i = 0; i < 2; i++) {
-        //         for (uint8_t j = 0; j < 6; j++) {
-        //             uint8_t overflow = (matrix[i][j][1] >> 15) & 1;
-
-        //             matrix[i][j][0] = (matrix[i][j][0] << 1) | overflow;
-        //             matrix[i][j][1] = (matrix[i][j][1] << 1);
-        //         }
-        //     }
-        // }
-
-        // X range validation
-        bool isInRangeX(uint8_t x) {
-            return (x >= 0 && x < 32);
-        }
-
-        // Y range validation
-        bool isInRangeY(uint8_t y) {
-            return (y >= 0 && y < 6);
-        }
-
-        // Z range validation
-        bool isInRangeZ(uint8_t z) {
-            return (z >= 0 && z < 2);
-        }
-
-        // Validates range of (x, y, z) coordinate
-        bool isInRange(uint8_t x, uint8_t y, uint8_t z) {
-            return (isInRangeX(x) && isInRangeY(y) && isInRangeZ(z));
-        }
-
-        // Sets the voxel at the given position on
-        void setVoxelOn(uint8_t x, uint8_t y, uint8_t z) {
-            if (isInRange(x, y, z)) {
-                if (x > 15) {
-                    matrix[z][y][1] |= (1 << (31 - x));
-                } else {
-                    matrix[z][y][0] |= (1 << (15 - x));
-                }
-            }
-        }
-
-        // Sets the voxel at the given position off
-        void setVoxelOff(uint8_t x, uint8_t y, uint8_t z) {
-            if (isInRange(x, y, z)) {
-                if (x > 15) {
-                    matrix[z][y][1] &= ~(1 << (31 - x));
-                } else {
-                    matrix[z][y][0] &= ~(1 << (15 - x));
-                }
-            }
-        }
-
-        // Sets the voxel at the given position to the given state.
-        void setVoxel(uint8_t x, uint8_t y, uint8_t z, uint8_t state) {
-            if (state) {
-                setVoxelOn(x, y, z);
-            } else {
-                setVoxelOff(x, y, z);
-            }
-        }
-
-        // Flips the state of a voxel
-        void flipVoxel(uint8_t x, uint8_t y, uint8_t z) {
-            if (isInRange(x, y, z)) {
-                if (x > 15) {
-                    matrix[z][y][1] ^= (1 << (31 - x));
-                } else {
-                    matrix[z][y][0] ^= (1 << (15 - x));
-                }
-            }
-        }
-
-        // Sets the given row on
-        void setRowOn(uint8_t y, uint8_t z) {
-            if (isInRangeY(y) && isInRangeY(y)) {
-                matrix[z][y][0] = 0xffff;
-                matrix[z][y][1] = 0xffff;
-            }
-        }
-
-        // Sets the given row off
-        void setRowOff(uint8_t y, uint8_t z) {
-            if (isInRangeY(y) && isInRangeY(y)) {
-                matrix[z][y][0] = 0x0000;
-                matrix[z][y][1] = 0x0000;
-            }
-        }
-
-        // Sets the given row to the given state
-        void setRow(uint8_t y, uint8_t z, uint8_t state) {
-            if (state) {
-                setRowOn(y, z);
-            } else {
-                setRowOff(y, z);
-            }
-        }
-
-        // Sets the given row on both layers to the given state
-        void setRowBothLayers(uint8_t y, uint8_t state) {
-            if (state) {
-                setRowOn(y, LAYER_FRONT);
-                setRowOn(y, LAYER_BACK);
-            } else {
-                setRowOff(y, LAYER_FRONT);
-                setRowOff(y, LAYER_BACK);
-            }
-        }
-
-        // Sets the given col on
-        void setColOn(uint8_t x, uint8_t z) {
-            if (isInRangeX(x) && isInRangeZ(z)) {
-                
-                uint8_t rowHalf = 0;
-                if (x > 15) {
-                    rowHalf = 1;
-                    x -= 16;
-                }
-
-                for (uint8_t i = 0; i < 6; i++) {
-                    matrix[z][i][rowHalf] |= (1 << (15 - x));
-                }
-            }
-        }
-
-        // Sets the given col off
-        void setColOff(uint8_t x, uint8_t z) {
-            if (isInRangeX(x) && isInRangeZ(z)) {
-                
-                uint8_t rowHalf = 0;
-                if (x > 15) {
-                    rowHalf = 1;
-                    x -= 16;
-                }
-
-                for (uint8_t i = 0; i < 6; i++) {
-                    matrix[z][i][rowHalf] &= ~(1 << (15 - x));
-                }
-            }
-        }
-
-        // Sets the given col to the given state
-        void setCol(uint8_t x, uint8_t z, uint8_t state) {
-            if (state) {
-                setColOn(x, z);
-            } else {
-                setColOff(x, z);
-            }
-        }
-
-        // Sets the given col on both layers to the given state
-        void setColBothLayers(uint8_t x, uint8_t state) {
-            if (state) {
-                setColOn(x, LAYER_FRONT);
-                setColOn(x, LAYER_BACK);
-            } else {
-                setColOff(x, LAYER_FRONT);
-                setColOff(x, LAYER_BACK);
-            }
-        }
-
-        // Fills the matrix with the given 8-bit pattern
-        void fillMatrix(uint8_t pattern) {
-            for (uint8_t z = 0; z < 2; z++) {
-                for (uint8_t y = 0; y < 6; y++) {
-                    matrix[z][y][0] = (pattern << 8) | pattern;
-                    matrix[z][y][1] = (pattern << 8) | pattern;
-                }
-            }
-        }
-
-        // Fills the given layer with the given 8-bit pattern
-        void fillLayer(uint8_t z, uint8_t pattern) {
-            for (uint8_t y = 0; y < 6; y++) {
-                matrix[z][y][0] = (pattern << 8) | pattern;
-                matrix[z][y][1] = (pattern << 8) | pattern;
-            }
-        }
-
-        // Fills the given row with the given 8-bit pattern
-        void fillRow(uint8_t y, uint8_t z, uint8_t pattern) {
-            matrix[z][y][0] = (pattern << 8) | pattern;
-            matrix[z][y][1] = (pattern << 8) | pattern;
-        }
-
-        // Makes sure x1 < x2
-        void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
-            if (x1 > x2) {
-                uint8_t temp = x1;
-                x1 = x2;
-                x2 = temp;
-            }
-            *p1 = x1;
-            *p2 = x2;
-        }
-
-        // Draws the outline of a box, between (x1, y1) and (x2, y2);
-        void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
-
-            setBytesAscOrder(x1, x2, &x1, &x2);
-            setBytesAscOrder(y1, y2, &y1, &y2);
-
-            matrix[z][y1][0] = line0(x1, x2);
-            matrix[z][y1][1] = line1(x1, x2);
-
-            matrix[z][y2][0] = line0(x1, x2);
-            matrix[z][y2][1] = line1(x1, x2);
-
-            for (uint8_t i = y1; i < y2; i++) {
-                setVoxelOn(x1, i, z);
-                setVoxelOn(x2, i, z);
-            }
-        }
-
-        // Returns the 16-bit pattern for a line between start and end
-        uint16_t line(uint8_t start, uint8_t end) {
-            return ((0xffff >> start) & ~(0xffff >> (end + 1)));
-        }
-
-        // Returns the first half of the 32-bit pattern for a line between start and end
-        uint16_t line0(uint8_t start, uint8_t end) {
-            if (start > 15) {
-                return 0;
-            }
-            if (end > 15) {
-                end = 15;
-            }
-            return line(start, end);
-        }
-
-        // Returns the second half of the 32-bit pattern for a line between start and end
-        uint16_t line1(uint8_t start, uint8_t end) {
-            if (end < 16) {
-                return 0;
-            }
-            if (start < 16) {
-                start = 0;
-            }
-            end -= 16;
-            return line(start, end);
-        }
-};
-
-// create display object
-Display display;
 
 void setup() {
     
@@ -758,7 +209,7 @@ void setup() {
     if (wifiEnabledMode == WIFI_ENABLED/* && digitalRead(PIN_WIFI_REQUEST_MASTER) == REQUEST_MASTER_TRUE*/) {
         setMasterSlaveMode(WIFI_MASTER);
         if (wifiConnectedMode == WIFI_DISCONNECTED) {
-            display.scrollText("CONNECTING...", LAYER_FRONT);
+            scrollText("CONNECTING...", LAYER_FRONT);
         }
     }
 
@@ -767,7 +218,7 @@ void setup() {
     mode = EEPROM.read(eeModeAddr);
 
     if (masterSlaveMode == ARDUINO_MASTER) {
-        display.displayMode();
+        displayMode();
         modeChanged = true;
     }
 
@@ -785,50 +236,50 @@ void loop() {
     // store new mode in EEPROM memory, update display
     if (modeChanged && masterSlaveMode == ARDUINO_MASTER) {
         delay(1000);
-        display.fillMatrix(0);
+        fillMatrix(0);
 
         EEPROM.write(eeModeAddr, mode);
         modeChanged = false;
 
         switch (mode) {
             case 0:
-                display.staticText("TEST", LAYER_FRONT, 2);
+                pacmanInit();
                 break;
             case 1:
-                display.scrollText("HELLO WORLD", LAYER_FRONT);
+                scrollText("HELLO WORLD", LAYER_FRONT);
                 break;
             case 2:
-                display.scrollTextBothLayers("HIIII");
+                scrollTextBothLayers("HIIII");
                 break;
             case 3:
-                display.staticTextBothLayers("ALOHA", 2);
+                staticTextBothLayers("ALOHA", 2);
                 break;
             case 4:
-                display.wipe(DIR_L_TO_R);
+                wipe(DIR_L_TO_R);
                 break;
             case 5:
-                display.wipe(DIR_R_TO_L);
+                wipe(DIR_R_TO_L);
                 break;
             case 6:
-                display.wipe(DIR_B_TO_T);
+                wipe(DIR_B_TO_T);
                 break;
             case 7:
-                display.wipe(DIR_T_TO_B);
+                wipe(DIR_T_TO_B);
                 break;
             case 8:
-                display.wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
+                wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
                 break;
             default:
-                display.off();
+                displayOff();
                 break;
         }
     } else if (masterSlaveMode == WIFI_MASTER) {
         if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_DISCONNECTED && wifiConnectedMode == WIFI_CONNECTED) {
             wifiConnectedMode = WIFI_DISCONNECTED;
-            display.scrollText("CONNECTING...", LAYER_FRONT);
+            scrollText("CONNECTING...", LAYER_FRONT);
         } else if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_CONNECTED && wifiConnectedMode == WIFI_DISCONNECTED) {
             wifiConnectedMode = WIFI_CONNECTED;
-            display.off();
+            displayOff();
         } else {
             if (Serial.available() > 0) {
                 delay(100);
@@ -843,17 +294,12 @@ void loop() {
 
                 textToUpperCase(inText);
 
-                display.scrollTextIfLong(inText, LAYER_FRONT);
+                scrollTextIfLong(inText, LAYER_FRONT);
             }
         }
-        // if (Serial.available() > 0) {
-        //     char *inText = Serial.read();
-
-        //     display.staticText(inText, LAYER_FRONT, 2);
-        // }
     }
 
-    display.update();
+    updateDisplay();
 
 
 /*
@@ -1039,7 +485,7 @@ ISR (PCINT0_vect) {
             mode += 10;
         }
         modeChanged = true;
-        display.displayMode();
+        displayMode();
         lastBtnIntMillis = millis();
     }
 }
@@ -1065,6 +511,870 @@ void textToUpperCase(char *text) {
         p++;
     }
 }
+
+
+void updateDisplay() {
+    if ((millis() - lastFrameUpdate) >= frameDelay) {
+        lastFrameUpdate = millis();
+        switch(activeAnim) {
+            case TEXT_SCROLL:
+                scrollTextUpdate();
+                break;
+            case TEXT_SCROLL_BOTH_LAYERS:
+                scrollTextBothLayersUpdate();
+                break;
+            case WIPE:
+                wipeUpdate();
+                break;
+            case WIPE_DIAGONAL:
+                wipeDiagonalUpdate();
+                break;
+            case PACMAN:
+                pacmanUpdate();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+
+void incrementStep() {
+    curStep++;
+    if (curStep >= totalSteps) {
+        curStep = 0;
+    }
+}
+
+void incrementSubAnimStep() {
+    subAnimCurStep++;
+    if (subAnimCurStep >= subAnimTotalSteps) {
+        subAnimCurStep = 0;
+    }
+}
+
+void displayOff() {
+    activeAnim = OFF;
+    fillMatrix(0);
+}
+
+// Shows the number of the current mode.
+void displayMode() {
+    fillMatrix(0);
+    char modeChars[3];
+    itoa(mode, modeChars, 10);
+    displayText(modeChars, LAYER_FRONT, 2);
+}
+
+// TEXT EFFECTS
+
+// Displays text.
+// If text is wider than matrix, scrolls text, else displays statically.
+void scrollTextIfLong(const char *message, uint8_t z) {
+    uint16_t len = calculateTextPixelWidth(message, false);
+
+    if (len > 32) {
+        scrollText(message, z);
+    } else {
+        displayText(message, z, 0);
+    }
+}
+
+// Displays text statically
+void staticText(const char *message, uint8_t z, uint8_t startX) {
+    activeAnim = TEXT_STATIC;
+    strcpy(text, message);
+
+    displayText(message, z, startX);
+}
+
+void staticTextBothLayers(const char *message, uint8_t startX) {
+    activeAnim = TEXT_STATIC_BOTH_LAYERS;
+    strcpy(text, message);
+    
+    displayText(message, LAYER_FRONT, startX);
+    displayText(message, LAYER_BACK, startX);
+}
+
+// Scrolls text from right to left.
+void scrollText(const char *message, uint8_t z) {
+    activeAnim = TEXT_SCROLL;
+    strcpy(text, message);
+    animFlags = 0;
+    animFlags |= (TEXT_SCROLL_FLAG_Z & z);
+
+    totalSteps = calculateTextPixelWidth(message, true) + 32;
+    curStep = 0;
+
+    frameDelay = TEXT_SCROLL_FRAME_DELAY;
+}
+
+void scrollTextUpdate() {
+    uint8_t z = (animFlags & TEXT_SCROLL_FLAG_Z) == TEXT_SCROLL_FLAG_Z;
+    int16_t x = 31 - curStep;
+    displayText(text, z, x);
+
+    incrementStep();
+}
+
+// Scrolls text from right to left on both layers.
+// This gives a "3D" effect.
+void scrollTextBothLayers(const char *message) {
+    activeAnim = TEXT_SCROLL_BOTH_LAYERS;
+    strcpy(text, message);
+    animFlags = 0;
+
+    totalSteps = calculateTextPixelWidth(message, true) + 32;
+    curStep = 0;
+
+    frameDelay = TEXT_SCROLL_FRAME_DELAY;
+}
+
+void scrollTextBothLayersUpdate() {
+    int16_t x = 31 - curStep;
+    displayText(text, LAYER_FRONT, x);
+    displayText(text, LAYER_BACK, x);
+
+    incrementStep();
+}
+
+uint16_t calculateTextPixelWidth(const char *message, bool scrolling) {
+    uint16_t len = 0;
+
+    const char *p;
+    p = message;
+    while (*p) {
+        len += asciiLen[*p - ' '];
+        if (scrolling) {
+            len += 2;
+        } else {
+            len++;
+        }
+        p++;
+    }
+
+    return len;
+}
+
+void displayText(const char *message, uint8_t z, int16_t startX) {
+    int16_t x;
+
+    if (startX > 0) {
+        // clear matrix left of text
+        for (x = 0; x < startX; x++) {
+            setColOff(x, z);
+        }
+    } else {
+        x = startX;
+    }
+
+    // display each char
+    const char *p;
+    p = message;
+    while (*p) {
+        if (x >= 32) {
+            break;
+        }
+        for (uint8_t i = 0; i < asciiLen[*p - ' ']; i++) {
+            setColForChar(*p, i, x, z);
+            x++;
+        }
+        // one col space between each char
+        setColOff(x, z);
+        x++;
+        p++;
+    }
+
+    // clear matrix right of text
+    while (x < 32) {
+        setColOff(x, z);
+        x++;
+    }
+}
+
+// Sets a single col of a character to a col in the matrix.
+void setColForChar(char c, uint8_t col, uint8_t x, uint8_t z) {
+    c -= ' ';
+
+    for (uint8_t i = 0; i < 6; i++) {
+        setVoxel(x, i, z, (ascii[c][5 - i] >> (asciiLen[c] - 1 - col)) & 1);
+    }
+}
+
+// Sets a single col of a character to the last col in the matrix.
+// See setColForChar()
+void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
+    setColForChar(c, col, 31, z);
+}
+
+
+
+// ANIMATION EFFECTS
+
+void wipe(uint8_t direction) {
+    activeAnim = WIPE;
+    animFlags = 0;
+    animFlags |= direction;
+
+    if (direction & (DIR_L_TO_R | DIR_R_TO_L)) {
+        totalSteps = 65;
+        frameDelay = WIPE_FRAMEDELAY_X;
+    } else if (direction & (DIR_B_TO_T | DIR_T_TO_B)) {
+        totalSteps = 13;
+        frameDelay = WIPE_FRAMEDELAY_Y;
+    }
+
+    curStep = 0;
+}
+
+void wipeUpdate() {
+    // horizontal
+    if (animFlags & (DIR_L_TO_R | DIR_R_TO_L)) {
+        if (curStep <= 32) {
+            for (uint8_t x = 0; x < 32; x++) {
+                if (x < curStep) {
+                    if (animFlags & DIR_L_TO_R) {
+                        setColBothLayers(x, 1);
+                    } else {
+                        setColBothLayers(31 - x, 1);
+                    }
+                } else {
+                    if (animFlags & DIR_L_TO_R) {
+                        setColBothLayers(x, 0);
+                    } else {
+                        setColBothLayers(31 - x, 0);
+                    }
+                }
+            }
+        } else {
+            for (uint8_t x = 0; x < 32; x++) {
+                if (x < (curStep - 32)) {
+                    if (animFlags & DIR_L_TO_R) {
+                        setColBothLayers(x, 0);
+                    } else {
+                        setColBothLayers(31 - x, 0);
+                    }
+                } else {
+                    if (animFlags & DIR_L_TO_R) {
+                        setColBothLayers(x, 1);
+                    } else {
+                        setColBothLayers(31 - x, 1);
+                    }
+                }
+            }
+        }
+    // vertical
+    } else if (animFlags & (DIR_B_TO_T | DIR_T_TO_B)) {
+        if (curStep <= 6) {
+            for (uint8_t y = 0; y < 6; y++) {
+                if (y < curStep) {
+                    if (animFlags & DIR_B_TO_T) {
+                        setRowBothLayers(y, 1);
+                    } else {
+                        setRowBothLayers(5 - y, 1);
+                    }
+                } else {
+                    if (animFlags & DIR_B_TO_T) {
+                        setRowBothLayers(y, 0);
+                    } else {
+                        setRowBothLayers(5 - y, 0);
+                    }
+                }
+            }
+        } else {
+            for (uint8_t y = 0; y < 32; y++) {
+                if (y < (curStep - 6)) {
+                    if (animFlags & DIR_B_TO_T) {
+                        setRowBothLayers(y, 0);
+                    } else {
+                        setRowBothLayers(5 - y, 0);
+                    }
+                } else {
+                    if (animFlags & DIR_B_TO_T) {
+                        setRowBothLayers(y, 1);
+                    } else {
+                        setRowBothLayers(5 - y, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    incrementStep();
+}
+
+void wipeDiagonal(uint8_t direction) {
+    activeAnim = WIPE_DIAGONAL;
+    animFlags = 0;
+    animFlags |= direction;
+
+    totalSteps = 32 + (5 * WIPE_DIAGONAL_ROW_OFFSET) + WIPE_DIAGONAL_WIDTH;
+    frameDelay = WIPE_DIAGONAL_FRAMEDELAY;
+    curStep = 0;
+}
+
+void wipeDiagonalUpdate() {
+    if ((animFlags & (DIR_L_TO_R | DIR_B_TO_T)) == (DIR_L_TO_R | DIR_B_TO_T)) {
+        for (uint8_t y = 0; y < 6; y++) {
+            setVoxelOn(curStep - (2 * y), y, LAYER_FRONT);
+            setVoxelOff(curStep - WIPE_DIAGONAL_WIDTH - (2 * y), y, LAYER_FRONT);
+        }
+    } else if ((animFlags & (DIR_L_TO_R | DIR_T_TO_B)) == (DIR_L_TO_R | DIR_T_TO_B)) {
+        for (uint8_t y = 0; y < 6; y++) {
+            setVoxelOn(curStep - (2 * (5 - y)), y, LAYER_FRONT);
+            setVoxelOff(curStep - WIPE_DIAGONAL_WIDTH - (2 * (5 - y)), y, LAYER_FRONT);
+        }
+    } else if ((animFlags & (DIR_R_TO_L | DIR_B_TO_T)) == (DIR_R_TO_L | DIR_B_TO_T)) {
+        for (uint8_t y = 0; y < 6; y++) {
+            setVoxelOn((totalSteps - curStep - 1) - WIPE_DIAGONAL_WIDTH - (2 * (5 - y)), y, LAYER_FRONT);
+            setVoxelOff((totalSteps - curStep - 1) - (2 * (5 - y)), y, LAYER_FRONT);
+        }
+    } else if ((animFlags & (DIR_R_TO_L | DIR_T_TO_B)) == (DIR_R_TO_L | DIR_T_TO_B)) {
+        for (uint8_t y = 0; y < 6; y++) {
+            setVoxelOn((totalSteps - curStep - 1) - WIPE_DIAGONAL_WIDTH - (2 * y), y, LAYER_FRONT);
+            setVoxelOff((totalSteps - curStep - 1) - (2 * y), y, LAYER_FRONT);
+        }
+    }
+
+    incrementStep();
+}
+
+// PACMAN ANIMATION
+
+void pacmanInit() {
+    activeAnim = PACMAN;
+    animFlags = 0;
+    totalSteps = 8;
+    frameDelay = PACMAN_FRAMEDELAY;
+    curStep = 4;
+    pacmanSubAnimInit();
+}
+
+void pacmanUpdate() {
+    pacmanSubAnimUpdate();
+    if (subAnimCurStep == 0) {
+        incrementStep();
+        pacmanSubAnimInit();
+    }
+}
+
+void pacmanSubAnimInit() {
+    switch (curStep) {
+        case 0:
+            pacmanScrollInit(DIR_L_TO_R);
+            break;
+        case 1:
+            blankFrameInit(2);
+            break;
+        case 2:
+            pacmanScrollInit(DIR_R_TO_L);
+            break;
+        case 3:
+            blankFrameInit(2);
+            break;
+        case 4:
+            pacmanScrollWGhostsInit(2, DIR_L_TO_R);
+            break;
+        case 5:
+            blankFrameInit(2);
+            break;
+        case 6:
+            pacmanScrollWGhostsInit(3, DIR_R_TO_L);
+            break;
+        case 7:
+            blankFrameInit(2);
+            break;
+    }
+}
+
+void pacmanSubAnimUpdate() {
+    switch (activeSubAnim) {
+        case PACMAN_SCROLL:
+            pacmanScrollUpdate();
+            break;
+        case PACMAN_BLANK_FRAME:
+            blankFrameUpdate();
+            break;
+        case PACMAN_SCROLL_GHOSTS:
+            pacmanScrollWGhostsUpdate();
+            break;
+    }
+}
+
+void blankFrameInit(uint8_t numFrames) {
+    activeSubAnim = PACMAN_BLANK_FRAME;
+    subAnimTotalSteps = numFrames;
+    subAnimCurStep = 0;
+}
+
+void blankFrameUpdate() {
+    fillMatrix(0);
+    incrementSubAnimStep();
+}
+
+void pacmanScrollInit(uint8_t dir) {
+    activeSubAnim = PACMAN_SCROLL;
+    subAnimTotalSteps = 38;
+    subAnimCurStep = 0;
+    animFlags &= ~PACMAN_FLAG_DIRECTION;
+    if (dir == DIR_L_TO_R) {
+        animFlags |= PACMAN_FLAG_DIR_L_TO_R;
+    } else {
+        animFlags |= PACMAN_FLAG_DIR_R_TO_L;
+    }
+}
+
+void pacmanScrollUpdate() {
+    uint8_t dir = animFlags & PACMAN_FLAG_DIRECTION;
+    if (dir == PACMAN_FLAG_DIR_L_TO_R) dir = DIR_L_TO_R;
+    else dir = DIR_R_TO_L;
+
+    if (subAnimCurStep == 0) {
+        drawPacDots(dir);
+        // start with shape 1 - so it lines up with the pacdots
+        animFlags |= PACMAN_FLAG_PACMAN_SHAPE;
+    }
+
+    int8_t pacmanPos;
+    if (dir == DIR_L_TO_R) {
+        pacmanPos = subAnimCurStep - 5;
+    } else {
+        pacmanPos = 32 - subAnimCurStep;
+    }
+
+    uint8_t shapeIndex = animFlags & PACMAN_FLAG_PACMAN_SHAPE;
+    drawPacmanShape(pacmanPos, LAYER_FRONT, shapeIndex, dir);
+    if (dir == DIR_L_TO_R) {
+        setColOff(pacmanPos - 1, LAYER_FRONT);
+        setVoxelOff(pacmanPos + 3, PACDOT_HEIGHT, LAYER_BACK);
+    } else {
+        setColOff(pacmanPos + pacmanShapeLen, LAYER_FRONT);
+        setVoxelOff(pacmanPos + 1, PACDOT_HEIGHT, LAYER_BACK);
+    }
+
+    animFlags ^= PACMAN_FLAG_PACMAN_SHAPE;
+
+    incrementSubAnimStep();
+}
+
+void pacmanScrollWGhostsInit(uint8_t numGhosts, uint8_t dir) {
+    activeSubAnim = PACMAN_SCROLL_GHOSTS;
+    subAnimTotalSteps = 36 + PACMAN_GHOST_GAP + numGhosts * (pacmanGhostShapeLen + 2);
+    subAnimCurStep = 0;
+    // max 4 ghosts
+    if (numGhosts > 4) numGhosts = 4;
+    animFlags &= ~PACMAN_FLAG_NUM_GHOSTS;
+    animFlags |= numGhosts << PACMAN_FLAG_NUM_GHOSTS_LSHIFT;
+
+    animFlags &= ~PACMAN_FLAG_DIRECTION;
+    if (dir == DIR_L_TO_R) {
+        animFlags |= PACMAN_FLAG_DIR_L_TO_R;
+    } else {
+        animFlags |= PACMAN_FLAG_DIR_R_TO_L;
+    }
+}
+
+void pacmanScrollWGhostsUpdate() {
+    uint8_t dir = animFlags & PACMAN_FLAG_DIRECTION;
+    if (dir == PACMAN_FLAG_DIR_L_TO_R) dir = DIR_L_TO_R;
+    else dir = DIR_R_TO_L;
+
+    if (subAnimCurStep == 0) {
+        drawPacDots(dir);
+        // start at shape 1
+        animFlags |= PACMAN_FLAG_PACMAN_SHAPE;
+    }
+
+    int8_t pacmanPos;
+    if (dir == DIR_L_TO_R) {
+        pacmanPos = subAnimCurStep - 5;
+    } else {
+        pacmanPos = 32 - subAnimCurStep;
+    }
+
+    uint8_t shapeIndex = animFlags & PACMAN_FLAG_PACMAN_SHAPE;
+    drawPacmanShape(pacmanPos, LAYER_FRONT, shapeIndex, dir);
+    if (dir == DIR_L_TO_R) {
+        setColOff(pacmanPos - 1, LAYER_FRONT);
+        setVoxelOff(pacmanPos + 3, PACDOT_HEIGHT, LAYER_BACK);
+    } else {
+        setColOff(pacmanPos + pacmanShapeLen, LAYER_FRONT);
+        setVoxelOff(pacmanPos + 1, PACDOT_HEIGHT, LAYER_BACK);
+    }
+
+    uint8_t numGhosts = (animFlags & PACMAN_FLAG_NUM_GHOSTS) >> PACMAN_FLAG_NUM_GHOSTS_LSHIFT;
+
+    int8_t ghostPos;
+    uint8_t ghostLayer = LAYER_FRONT;
+
+    for (uint8_t i = 0; i < numGhosts; i++) {
+        if (dir == DIR_L_TO_R) {
+            ghostPos = pacmanPos - PACMAN_GHOST_GAP - pacmanGhostShapeLen - i * (pacmanGhostShapeLen + 2);
+        } else {
+            ghostPos = pacmanPos + PACMAN_GHOST_GAP + pacmanShapeLen + i * (pacmanGhostShapeLen + 2);
+        }
+        drawGhostShape(ghostPos, ghostLayer);
+        if (dir == DIR_L_TO_R) {
+            setColOff(ghostPos - 1, ghostLayer);
+        } else {
+            setColOff(ghostPos + pacmanGhostShapeLen, ghostLayer);
+        }
+        // alternate layer between ghosts
+        ghostLayer ^= 1;
+    }
+
+    animFlags ^= PACMAN_FLAG_PACMAN_SHAPE;
+
+    incrementSubAnimStep();
+}
+
+////////////////////////// TODO do these //////////////////////////////////////////////////////////////
+void pacmanEatGhostInit() {
+
+}
+
+void pacmanEatGhostUpdate() {
+
+}
+
+// Draws pacdots in the given direction on the back layer.
+void drawPacDots(uint8_t direction) {
+    // int16_t frameDelay = PACDOT_FRAMEDELAY;
+    if (direction == DIR_L_TO_R) {
+        for (int8_t x = 2; x < 32; x += PACDOT_SPACING) {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+            // delay(frameDelay);
+        }
+    } else if (direction == DIR_R_TO_L) {
+        for (int8_t x = 29; x >= 0; x -= PACDOT_SPACING) {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+            // delay(frameDelay);
+        }
+    }
+}
+
+// Draws pacdots in the given direction on the back layer, 
+// with the specified dot being a power pellet.
+void drawPacDots(uint8_t direction, uint8_t bigDotPos) {
+    uint8_t x;
+    // int16_t frameDelay = PACDOT_FRAMEDELAY;
+    for (int8_t dotI = 0; dotI < 8; dotI++) {
+        if (direction == DIR_L_TO_R) {
+            x = 2 + (dotI * PACDOT_SPACING);
+        } else if (direction == DIR_R_TO_L) {
+            x = 29 - (dotI * PACDOT_SPACING);
+        }
+        // draw power pellet
+        if (dotI == bigDotPos) {
+            drawPacDotPowerPellet(x);
+        // draw normal pacdot
+        } else {
+            setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+        }
+        // delay(frameDelay);
+    }
+}
+
+// Draws a power pellet at the given x pos.
+void drawPacDotPowerPellet(uint8_t x) {
+    setVoxelOn(x, PACDOT_HEIGHT - 1, LAYER_BACK);
+    setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
+    setVoxelOn(x, PACDOT_HEIGHT + 1, LAYER_BACK);
+    setVoxelOn(x - 1, PACDOT_HEIGHT, LAYER_BACK);
+    setVoxelOn(x + 1, PACDOT_HEIGHT, LAYER_BACK);
+}
+
+// Draws pacman at the given x pos. 
+// The x pos corresponds to the left-most col of the shape.
+void drawPacmanShape(int8_t x, uint8_t z, uint8_t shape, uint8_t direction) {
+    // check x range
+    if (x < 1 - pacmanShapeLen || x >= 32) {
+        return;
+    }
+
+    for (uint8_t col = 0; col < pacmanShapeLen; col++) {
+        if (direction == DIR_L_TO_R) {
+            setColForShape(pacmanShapes[shape], pacmanShapeLen, col, x + col, z);
+        } else {
+            setColForShape(pacmanShapes[shape], pacmanShapeLen, (pacmanShapeLen - col - 1), x + col, z);
+        }
+    }
+}
+
+// Draws a ghost at the given x pos.
+// The x pos corresponds to the left-most col of the shape.
+void drawGhostShape(int8_t x, uint8_t z) {
+    if (x < 1 - pacmanGhostShapeLen || x >= 32) {
+        return;
+    }
+
+    for (uint8_t col = 0; col < pacmanGhostShapeLen; col++) {
+        setColForShape(pacmanGhostShape, pacmanGhostShapeLen, col, x + col, z);
+    }
+}
+
+// Sets a single col of a shape to a col in the matrix.
+void setColForShape(uint8_t shape[6], uint8_t len, uint8_t col, uint8_t x, uint8_t z) {
+    for (uint8_t i = 0; i < 6; i++) {
+        setVoxel(x, i, z, (shape[5 - i] >> len - 1 - col) & 1);
+    }
+}
+
+// GENERAL DRAWING FUNCTIONS
+
+// Shifts the entire contents of the matrix one space to the left. 
+// void shiftMatrixL() {
+//     for (uint8_t i = 0; i < 2; i++) {
+//         for (uint8_t j = 0; j < 6; j++) {
+//             uint8_t overflow = (matrix[i][j][1] >> 15) & 1;
+
+//             matrix[i][j][0] = (matrix[i][j][0] << 1) | overflow;
+//             matrix[i][j][1] = (matrix[i][j][1] << 1);
+//         }
+//     }
+// }
+
+// X range validation
+bool isInRangeX(uint8_t x) {
+    return (x >= 0 && x < 32);
+}
+
+// Y range validation
+bool isInRangeY(uint8_t y) {
+    return (y >= 0 && y < 6);
+}
+
+// Z range validation
+bool isInRangeZ(uint8_t z) {
+    return (z >= 0 && z < 2);
+}
+
+// Validates range of (x, y, z) coordinate
+bool isInRange(uint8_t x, uint8_t y, uint8_t z) {
+    return (isInRangeX(x) && isInRangeY(y) && isInRangeZ(z));
+}
+
+// Sets the voxel at the given position on
+void setVoxelOn(uint8_t x, uint8_t y, uint8_t z) {
+    if (isInRange(x, y, z)) {
+        if (x > 15) {
+            matrix[z][y][1] |= (1 << (31 - x));
+        } else {
+            matrix[z][y][0] |= (1 << (15 - x));
+        }
+    }
+}
+
+// Sets the voxel at the given position off
+void setVoxelOff(uint8_t x, uint8_t y, uint8_t z) {
+    if (isInRange(x, y, z)) {
+        if (x > 15) {
+            matrix[z][y][1] &= ~(1 << (31 - x));
+        } else {
+            matrix[z][y][0] &= ~(1 << (15 - x));
+        }
+    }
+}
+
+// Sets the voxel at the given position to the given state.
+void setVoxel(uint8_t x, uint8_t y, uint8_t z, uint8_t state) {
+    if (state) {
+        setVoxelOn(x, y, z);
+    } else {
+        setVoxelOff(x, y, z);
+    }
+}
+
+// Flips the state of a voxel
+void flipVoxel(uint8_t x, uint8_t y, uint8_t z) {
+    if (isInRange(x, y, z)) {
+        if (x > 15) {
+            matrix[z][y][1] ^= (1 << (31 - x));
+        } else {
+            matrix[z][y][0] ^= (1 << (15 - x));
+        }
+    }
+}
+
+// Sets the given row on
+void setRowOn(uint8_t y, uint8_t z) {
+    if (isInRangeY(y) && isInRangeY(y)) {
+        matrix[z][y][0] = 0xffff;
+        matrix[z][y][1] = 0xffff;
+    }
+}
+
+// Sets the given row off
+void setRowOff(uint8_t y, uint8_t z) {
+    if (isInRangeY(y) && isInRangeY(y)) {
+        matrix[z][y][0] = 0x0000;
+        matrix[z][y][1] = 0x0000;
+    }
+}
+
+// Sets the given row to the given state
+void setRow(uint8_t y, uint8_t z, uint8_t state) {
+    if (state) {
+        setRowOn(y, z);
+    } else {
+        setRowOff(y, z);
+    }
+}
+
+// Sets the given row on both layers to the given state
+void setRowBothLayers(uint8_t y, uint8_t state) {
+    if (state) {
+        setRowOn(y, LAYER_FRONT);
+        setRowOn(y, LAYER_BACK);
+    } else {
+        setRowOff(y, LAYER_FRONT);
+        setRowOff(y, LAYER_BACK);
+    }
+}
+
+// Sets the given col on
+void setColOn(uint8_t x, uint8_t z) {
+    if (isInRangeX(x) && isInRangeZ(z)) {
+        
+        uint8_t rowHalf = 0;
+        if (x > 15) {
+            rowHalf = 1;
+            x -= 16;
+        }
+
+        for (uint8_t i = 0; i < 6; i++) {
+            matrix[z][i][rowHalf] |= (1 << (15 - x));
+        }
+    }
+}
+
+// Sets the given col off
+void setColOff(uint8_t x, uint8_t z) {
+    if (isInRangeX(x) && isInRangeZ(z)) {
+        
+        uint8_t rowHalf = 0;
+        if (x > 15) {
+            rowHalf = 1;
+            x -= 16;
+        }
+
+        for (uint8_t i = 0; i < 6; i++) {
+            matrix[z][i][rowHalf] &= ~(1 << (15 - x));
+        }
+    }
+}
+
+// Sets the given col to the given state
+void setCol(uint8_t x, uint8_t z, uint8_t state) {
+    if (state) {
+        setColOn(x, z);
+    } else {
+        setColOff(x, z);
+    }
+}
+
+// Sets the given col on both layers to the given state
+void setColBothLayers(uint8_t x, uint8_t state) {
+    if (state) {
+        setColOn(x, LAYER_FRONT);
+        setColOn(x, LAYER_BACK);
+    } else {
+        setColOff(x, LAYER_FRONT);
+        setColOff(x, LAYER_BACK);
+    }
+}
+
+// Fills the matrix with the given 8-bit pattern
+void fillMatrix(uint8_t pattern) {
+    for (uint8_t z = 0; z < 2; z++) {
+        for (uint8_t y = 0; y < 6; y++) {
+            matrix[z][y][0] = (pattern << 8) | pattern;
+            matrix[z][y][1] = (pattern << 8) | pattern;
+        }
+    }
+}
+
+// Fills the given layer with the given 8-bit pattern
+void fillLayer(uint8_t z, uint8_t pattern) {
+    for (uint8_t y = 0; y < 6; y++) {
+        matrix[z][y][0] = (pattern << 8) | pattern;
+        matrix[z][y][1] = (pattern << 8) | pattern;
+    }
+}
+
+// Fills the given row with the given 8-bit pattern
+void fillRow(uint8_t y, uint8_t z, uint8_t pattern) {
+    matrix[z][y][0] = (pattern << 8) | pattern;
+    matrix[z][y][1] = (pattern << 8) | pattern;
+}
+
+// Makes sure x1 < x2
+void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
+    if (x1 > x2) {
+        uint8_t temp = x1;
+        x1 = x2;
+        x2 = temp;
+    }
+    *p1 = x1;
+    *p2 = x2;
+}
+
+// Draws the outline of a box, between (x1, y1) and (x2, y2);
+void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
+
+    setBytesAscOrder(x1, x2, &x1, &x2);
+    setBytesAscOrder(y1, y2, &y1, &y2);
+
+    matrix[z][y1][0] = line0(x1, x2);
+    matrix[z][y1][1] = line1(x1, x2);
+
+    matrix[z][y2][0] = line0(x1, x2);
+    matrix[z][y2][1] = line1(x1, x2);
+
+    for (uint8_t i = y1; i < y2; i++) {
+        setVoxelOn(x1, i, z);
+        setVoxelOn(x2, i, z);
+    }
+}
+
+// Returns the 16-bit pattern for a line between start and end
+uint16_t line(uint8_t start, uint8_t end) {
+    return ((0xffff >> start) & ~(0xffff >> (end + 1)));
+}
+
+// Returns the first half of the 32-bit pattern for a line between start and end
+uint16_t line0(uint8_t start, uint8_t end) {
+    if (start > 15) {
+        return 0;
+    }
+    if (end > 15) {
+        end = 15;
+    }
+    return line(start, end);
+}
+
+// Returns the second half of the 32-bit pattern for a line between start and end
+uint16_t line1(uint8_t start, uint8_t end) {
+    if (end < 16) {
+        return 0;
+    }
+    if (start < 16) {
+        start = 0;
+    }
+    end -= 16;
+    return line(start, end);
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 // lowercase letters are not defined - use only uppercase
@@ -1936,7 +2246,7 @@ void pacmanScrollLtoRwGhosts(uint16_t frameDelay, uint8_t numGhosts, uint8_t gap
     drawPacDots(DIR_L_TO_R);
 
     // max 4 ghosts
-    if (numGhosts > 4) numGhosts == 4;
+    if (numGhosts > 4) numGhosts = 4;
 
     uint8_t pacShapeI = 1;
     for (int8_t x = -5; x < 31 + gap + numGhosts * (pacmanGhostShapeLen + 2); x++) {
@@ -1967,7 +2277,7 @@ void pacmanScrollRtoLwGhosts(uint16_t frameDelay, uint8_t numGhosts, uint8_t gap
     drawPacDots(DIR_R_TO_L);
 
     // max 4 ghosts
-    if (numGhosts > 4) numGhosts == 4;
+    if (numGhosts > 4) numGhosts = 4;
 
     uint8_t pacShapeI = 1;
     for (int8_t x = 32; x >= -3 - gap - numGhosts * (pacmanGhostShapeLen + 2); x--) {
