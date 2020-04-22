@@ -6,14 +6,52 @@
         <link rel="stylesheet" type="text/css" href="style.css">
         <script src="scripts.js"></script>
     </head>
-    <body>
+    <body onload="onLoad()">
         <div id="text">
-            <p>Display text (max 63 chars):</p>
-            <input id="text-input" type="text" />
-            <button id="text-submit" onclick="sendText()">Submit</button>
+            <form id="text-form" action="#">
+                <p>Display text (max 63 chars):</p>
+                <input id="text-input" type="text" name="text-input" maxlength="63" />
+                <input type="submit" value="Submit">
+
+                <p>Text mode:</p>
+                <input type="radio" name="textmode" value="3" checked>Scroll if long</input>
+                <br>
+                <input type="radio" name="textmode" value="1">Static</input>
+                <br>
+                <input type="radio" name="textmode" value="5">Static both layers</input>
+                <br>
+                <input type="radio" name="textmode" value="2">Scroll</input>
+                <br>
+                <input type="radio" name="textmode" value="4">Scroll both layers</input>
+            </form>
         </div>
         <div id="effects">
-            <button></button>
+            <p>Animation effects</p>
+            <button onclick="pacman()">PacMan</button>
+
+            <p>Wipe</p>
+            <button type="button" onclick="wipe(1)">Left to Right</button>
+            <br>
+            <button type="button" onclick="wipe(2)">Right to Left</button>
+            <br>
+            <button type="button" onclick="wipe(4)">Top to Bottom</button>
+            <br>
+            <button type="button" onclick="wipe(8)">Bottom to Top</button>
+            <br>
+            <button type="button" onclick="wipeDiagonal(9)">Bottom left to top right</button>
+            <br>
+            <button type="button" onclick="wipeDiagonal(5)">Top left to bottom right</button>
+            <br>
+            <button type="button" onclick="wipeDiagonal(10)">Bottom right to top left</button>
+            <br>
+            <button type="button" onclick="wipeDiagonal(6)">Top right to bottom left</button>
+
+            <p>Outline</p>
+            <button type="button" onclick="boxOutline(0)">Front layer</button>
+            <br>
+            <button type="button" onclick="boxOutline(1)">Back layer</button>
+            <br>
+            <button type="button" onclick="boxOutline(2)">Both layers</button>
         </div>
     </body>
 </html>

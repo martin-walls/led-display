@@ -9,6 +9,25 @@
 // communication to arduino
 #define BAUDRATE 115200
 #define SERIAL_CONFIG SERIAL_8N1
+#define SERIAL_START_BYTE 0xFF
+#define SERIAL_STOP_BYTE 0x00
+#define SERIAL_MODE_TEXT 1
+#define SERIAL_MODE_ANIM 2
+
+// text modes
+#define TEXT_STATIC 1
+#define TEXT_SCROLL 2
+#define TEXT_SCROLL_IF_LONG 3
+#define TEXT_SCROLL_BOTH_LAYERS 4
+#define TEXT_STATIC_BOTH_LAYERS 5
+// anim modes
+#define SOLID 32
+#define WIPE 33
+#define WIPE_DIAGONAL 34
+#define SNAKE 35
+#define BOX_OUTLINE 36
+// special animations
+#define PACMAN 64
 
 #define PIN_MASTER_SLAVE_MODE D7
 #define ARDUINO_MASTER 0
@@ -79,6 +98,7 @@ void setup() {
 
     // server.on("/", handleRoot);
     server.on("/text", handleTextMode);
+    server.on("/anim", handleAnimMode);
 
     server.begin();
     // Serial.println("Server started");
@@ -90,8 +110,6 @@ void setup() {
         delay(1);
     }
     isMaster = true;
-
-    // Serial.print("A");
 }
 
 void loop() {
@@ -125,13 +143,44 @@ void handleTextMode() {
 
     // server.send(200, "text/html", textHTML);
 
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(300);
-    digitalWrite(LED_BUILTIN, HIGH);
 
-    Serial.print(server.arg("plain"));
+
+    char textMode = server.arg("textmode")[0];
+    uint8_t mode = textMode - '0';
+
+    Serial.write(SERIAL_START_BYTE);
+    Serial.write(SERIAL_MODE_TEXT);
+    Serial.write(mode);
+    Serial.print(server.arg("text-input"));
+    Serial.write(SERIAL_STOP_BYTE);
+
+
+    // String message;
+    // message += server.arg("text-input") + '\n';
+    // message += server.arg("textmode");
+
+    // char message[2];
+    // message[1] = '\0';
+
+    // server.send(200, "text/plain", message);
 }
 
-void handleEffectsMode() {
+void handleAnimMode() {
+    Serial.write(SERIAL_START_BYTE);
+    Serial.write(SERIAL_MODE_ANIM);
 
+    char animMode = server.arg("animmode")[0];
+    Serial.write(animMode);
+    if (animMode == WIPE) {
+        uint8_t dir = server.arg("dir")[0] - '0';
+        Serial.write(dir);
+    } else if (animMode == WIPE_DIAGONAL) {
+        uint8_t dir = server.arg("dir")[0] - '0';
+        if (dir == 1) dir = 10;
+        Serial.write(dir);
+    } else if (animMode == BOX_OUTLINE) {
+        uint8_t layer = server.arg("layer")[0] - '0';
+        Serial.write(layer);
+    }
+    Serial.write(SERIAL_STOP_BYTE);
 }

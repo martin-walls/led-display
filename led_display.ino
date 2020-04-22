@@ -62,6 +62,10 @@
 // communication to wifi chip
 #define BAUDRATE 115200
 #define SERIAL_CONFIG SERIAL_8N1
+#define SERIAL_START_BYTE 0xFF
+#define SERIAL_STOP_BYTE 0x00
+#define SERIAL_MODE_TEXT 1
+#define SERIAL_MODE_ANIM 2
 
 #define PIN_MASTER_SLAVE_MODE A3
 #define ARDUINO_MASTER 0
@@ -282,19 +286,96 @@ void loop() {
             displayOff();
         } else {
             if (Serial.available() > 0) {
-                delay(100);
-                char inText[64];
-
-                uint8_t availableBytes = Serial.available();
-
-                for (uint8_t i = 0; i < availableBytes; i++) {
-                    inText[i] = Serial.read();
+                uint8_t inByte = Serial.read();
+                if (inByte == SERIAL_START_BYTE) {
+                    while (!Serial.available()) {}
+                    uint8_t mode = Serial.read();
+                    if (mode == SERIAL_MODE_TEXT) {
+                        char inText[64];
+                        while (!Serial.available()) {}
+                        uint8_t textMode = Serial.read();
+                        uint8_t i = 0;
+                        while (inByte != SERIAL_STOP_BYTE) {
+                            // don't overflow max len of text
+                            if (i == 63) {
+                                inText[i] = '\0';
+                                // clear rest of serial message
+                                while (inByte != SERIAL_STOP_BYTE) {
+                                    while (!Serial.available()) {}
+                                    inByte = Serial.read();
+                                }
+                                break;
+                            }
+                            while (!Serial.available()) {}
+                            inByte = Serial.read();
+                            if (inByte == SERIAL_STOP_BYTE) {
+                                inText[i] = '\0';
+                            } else {
+                                inText[i] = inByte;
+                            }
+                            i++;
+                        }
+                        textToUpperCase(inText);
+                        switch (textMode) {
+                            case TEXT_STATIC:
+                                staticText(inText, LAYER_FRONT, 0);
+                                break;
+                            case TEXT_SCROLL:
+                                scrollText(inText, LAYER_FRONT);
+                                break;
+                            default:
+                            case TEXT_SCROLL_IF_LONG:
+                                scrollTextIfLong(inText, LAYER_FRONT);
+                                break;
+                            case TEXT_SCROLL_BOTH_LAYERS:
+                                scrollTextBothLayers(inText);
+                                break;
+                            case TEXT_STATIC_BOTH_LAYERS:
+                                staticTextBothLayers(inText, 0);
+                                break;
+                        }
+                    } else if (mode == SERIAL_MODE_ANIM) {
+                        while (!Serial.available()) {}
+                        uint8_t animMode = Serial.read();
+                        // char test[3];
+                        // itoa(animMode, test, 10);
+                        // staticText(test, LAYER_FRONT, 2);
+                        switch (animMode) {
+                            case SOLID:
+                                break;
+                            case WIPE:
+                                while (!Serial.available()) {}
+                                uint8_t wipeDir = Serial.read();
+                                wipe(wipeDir);
+                                break;
+                            case WIPE_DIAGONAL:
+                                while (!Serial.available()) {}
+                                uint8_t wipeDiagonalDir = Serial.read();
+                                wipeDiagonal(wipeDiagonalDir);
+                                // char test2[3];
+                                // itoa(wipeDiagonalDir, test2, 10);
+                                // staticText(test2, LAYER_FRONT, 2);
+                                break;
+                            case SNAKE:
+                                break;
+                            case BOX_OUTLINE:
+                                while (!Serial.available()) {}
+                                uint8_t layer = Serial.read();
+                                // char test[2];
+                                // itoa(layer, test, 10);
+                                // staticText(test, LAYER_FRONT, 2);
+                                boxOutline(layer);
+                                break;
+                            case PACMAN:
+                                pacmanInit();
+                                break;
+                        }
+                        while (inByte != SERIAL_STOP_BYTE) {
+                            while (!Serial.available()) {}
+                            inByte = Serial.read();
+                        }
+                    }
                 }
-                inText[availableBytes] = '\0';
-
-                textToUpperCase(inText);
-
-                scrollTextIfLong(inText, LAYER_FRONT);
             }
         }
     }
@@ -582,6 +663,7 @@ void scrollTextIfLong(const char *message, uint8_t z) {
 
 // Displays text statically
 void staticText(const char *message, uint8_t z, uint8_t startX) {
+    fillMatrix(0);
     activeAnim = TEXT_STATIC;
     strcpy(text, message);
 
@@ -589,6 +671,7 @@ void staticText(const char *message, uint8_t z, uint8_t startX) {
 }
 
 void staticTextBothLayers(const char *message, uint8_t startX) {
+    fillMatrix(0);
     activeAnim = TEXT_STATIC_BOTH_LAYERS;
     strcpy(text, message);
     
@@ -598,6 +681,7 @@ void staticTextBothLayers(const char *message, uint8_t startX) {
 
 // Scrolls text from right to left.
 void scrollText(const char *message, uint8_t z) {
+    fillMatrix(0);
     activeAnim = TEXT_SCROLL;
     strcpy(text, message);
     animFlags = 0;
@@ -620,6 +704,7 @@ void scrollTextUpdate() {
 // Scrolls text from right to left on both layers.
 // This gives a "3D" effect.
 void scrollTextBothLayers(const char *message) {
+    fillMatrix(0);
     activeAnim = TEXT_SCROLL_BOTH_LAYERS;
     strcpy(text, message);
     animFlags = 0;
@@ -837,6 +922,17 @@ void wipeDiagonalUpdate() {
     }
 
     incrementStep();
+}
+
+void boxOutline(uint8_t layer) {
+    activeAnim = BOX_OUTLINE;
+    fillMatrix(0);
+    if (layer == 0 || layer == 2) {
+        drawBoxOutline(0, 0, 31, 5, LAYER_FRONT);
+    }
+    if (layer == 1 || layer == 2) {
+        drawBoxOutline(0, 0, 31, 5, LAYER_BACK);
+    }
 }
 
 // PACMAN ANIMATION
@@ -1320,7 +1416,7 @@ void setBytesAscOrder(uint8_t x1, uint8_t x2, uint8_t *p1, uint8_t *p2) {
 }
 
 // Draws the outline of a box, between (x1, y1) and (x2, y2);
-void boxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
+void drawBoxOutline(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t z) {
 
     setBytesAscOrder(x1, x2, &x1, &x2);
     setBytesAscOrder(y1, y2, &y1, &y2);
