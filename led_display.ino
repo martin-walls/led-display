@@ -844,7 +844,7 @@ void datetime() {
     }
     itoa(mins, &(time[5]), 10);
     if (time[6] == '\0') {
-        time[6] = time[3];
+        time[6] = time[5];
         time[5] = '0';
     }
     time[2] = ZERO_WIDTH_SPACE;
