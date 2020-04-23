@@ -14,6 +14,8 @@
 #define DIR_F_TO_B 0b010000
 #define DIR_B_TO_F 0b100000
 
+#define ZERO_WIDTH_SPACE '['
+
 // animation constants
 #define OFF 0
 // text effects
@@ -834,19 +836,21 @@ void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
 
 void datetime() {
     activeAnim = DATETIME;
-    char time[6];
+    char time[8];
     itoa(hours, &(time[0]), 10);
     if (time[1] == '\0') {
         time[1] = time[0];
         time[0] = '0';
     }
-    itoa(mins, &(time[3]), 10);
-    if (time[4] == '\0') {
-        time[4] = time[3];
-        time[3] = '0';
+    itoa(mins, &(time[5]), 10);
+    if (time[6] == '\0') {
+        time[6] = time[3];
+        time[5] = '0';
     }
-    time[2] = ':';
-    time[5] = '\0';
+    time[2] = ZERO_WIDTH_SPACE;
+    time[3] = ':';
+    time[4] = ZERO_WIDTH_SPACE;
+    time[7] = '\0';
     displayText(time, LAYER_FRONT, 2);
 
     for (uint8_t i = 0; i < weekday; i++) {
@@ -1534,8 +1538,6 @@ uint16_t line1(uint8_t start, uint8_t end) {
 
 
 
-
-
 // lowercase letters are not defined - use only uppercase
 const uint8_t ascii[][6] = {
     {// SPACE
@@ -2009,6 +2011,14 @@ const uint8_t ascii[][6] = {
         0b0100,
         0b1000,
         0b1111
+    },
+    {// zero width space
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b0,
+        0b0
     }
 };
 
@@ -2072,7 +2082,8 @@ const uint8_t asciiLen[] = {
     5, // W
     5, // X
     5, // Y
-    4 // Z
+    4, // Z
+    0 // zero width space
 };
 
 // Shapes for pacman
