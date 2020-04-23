@@ -1,6 +1,8 @@
 #include "avr/interrupt.h"
 #include <EEPROM.h>
 
+#define EEPROM_ADDR_MODE 0
+
 #define LAYER_FRONT 0
 #define LAYER_BACK 1
 
@@ -102,9 +104,6 @@ volatile uint8_t mode = 0;
 volatile bool modeChanged = false;
 // stores the last state of PINB pins
 volatile uint8_t PINB_lastState = 0;
-
-// Address where mode is stored in EEPROM memory
-uint16_t eeModeAddr = 0;
 
 uint8_t masterSlaveMode = ARDUINO_MASTER;
 uint8_t wifiEnabledMode = WIFI_DISABLED;
@@ -239,7 +238,7 @@ void setup() {
 
 
     // get mode from non-volatile memory
-    mode = EEPROM.read(eeModeAddr);
+    mode = EEPROM.read(EEPROM_ADDR_MODE);
 
     if (masterSlaveMode == ARDUINO_MASTER) {
         displayMode();
@@ -358,7 +357,7 @@ void loop() {
         delay(1000);
         fillMatrix(0);
 
-        EEPROM.write(eeModeAddr, mode);
+        EEPROM.write(EEPROM_ADDR_MODE, mode);
         modeChanged = false;
 
         updateDisplayToNewMode();
@@ -1719,8 +1718,8 @@ const uint8_t ascii[][6] = {
     {// 6
         0b0110,
         0b1000,
-        0b1000,
         0b1110,
+        0b1001,
         0b1001,
         0b0110
     },
@@ -1743,8 +1742,8 @@ const uint8_t ascii[][6] = {
     {// 9
         0b0110,
         0b1001,
+        0b1001,
         0b0111,
-        0b0001,
         0b0001,
         0b0110
     },

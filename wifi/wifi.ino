@@ -95,7 +95,8 @@ ESP8266WebServer server(80);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS);
 
-bool isDatetimeMode = false;
+// default to datetime when power on
+bool isDatetimeMode = true;
 uint32_t lastDatetimeUpdate;
 uint8_t lastDatetimeMins;
 
