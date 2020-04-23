@@ -5,6 +5,8 @@
 #include <FS.h>
 // #include <ESPAsyncTCP.h>
 // #include <ESPAsyncWebServer.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 // communication to arduino
 #define BAUDRATE 115200
@@ -16,6 +18,7 @@
 #define POST_MODE_OFF '0'
 #define POST_MODE_TEXT '1'
 #define POST_MODE_ANIM '2'
+#define POST_MODE_DATETIME '3'
 
 #define POST_TEXTMODE_STATIC '1'
 #define POST_TEXTMODE_SCROLL '2'
@@ -42,6 +45,7 @@
 #define SERIAL_MODE_OFF 0
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
+#define SERIAL_MODE_DATETIME 3
 // text modes
 #define SERIAL_TEXT_STATIC 1
 #define SERIAL_TEXT_SCROLL 2
@@ -78,11 +82,22 @@
 #define WIFI_CONNECTED 1
 #define WIFI_DISCONNECTED 0
 
+// datetime
+#define UTC_OFFSET_SECONDS 3600
+#define DATETIME_UPDATE_MILLIS 10000
+
 const char *ssid = "EE-de2brd_EXT";
 const char *password = "golf-drift-key";
 
 ESP8266WebServer server(80);
 // AsyncWebServer server(80);
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS);
+
+bool isDatetimeMode = false;
+uint32_t lastDatetimeUpdate;
+uint8_t lastDatetimeMins;
 
 bool isMaster = false;
 
@@ -146,6 +161,8 @@ void setup() {
         delay(1);
     }
     isMaster = true;
+
+    timeClient.begin();
 }
 
 void loop() {
@@ -159,6 +176,14 @@ void loop() {
         isMaster = false;
         Serial.end();
     }
+
+    if (isDatetimeMode) {
+        timeClient.update();
+        if (timeClient.getMinutes() != lastDatetimeMins) {
+            sendSerialDatetimePacket();
+            lastDatetimeMins = timeClient.getMinutes();
+        }
+    }
 }
 
 void handleEffectsUpdate() {
@@ -171,17 +196,21 @@ void handleEffectsUpdate() {
     char mode = server.arg("mode")[0];
 
     if (mode == POST_MODE_OFF) {
+        isDatetimeMode = false;
         Serial.write(SERIAL_MODE_OFF);
     } else if (mode == POST_MODE_TEXT) {
         sendUpdateText();
     } else if (mode == POST_MODE_ANIM) {
         sendUpdateAnim();
+    } else if (mode == POST_MODE_DATETIME) {
+        sendUpdateDatetime();
     }
 
     Serial.write(SERIAL_STOP_BYTE);
 }
 
 void sendUpdateText() {
+    isDatetimeMode = false;
     Serial.write(SERIAL_MODE_TEXT);
 
     char textMode = server.arg("textmode")[0];
@@ -207,6 +236,7 @@ void sendUpdateText() {
 }
 
 void sendUpdateAnim() {
+    isDatetimeMode = false;
     Serial.write(SERIAL_MODE_ANIM);
 
     char animMode = server.arg("animmode")[0];
@@ -286,4 +316,23 @@ void sendUpdateBoxOutline() {
             Serial.write(SERIAL_LAYER_BOTH);
             break;
     }
+}
+
+void sendUpdateDatetime() {
+    isDatetimeMode = true;
+    timeClient.update();
+    Serial.write(SERIAL_MODE_DATETIME);
+    Serial.write(timeClient.getHours());
+    Serial.write(timeClient.getMinutes());
+    Serial.write(timeClient.getDay());
+}
+
+// hours, mins, day of week
+void sendSerialDatetimePacket() {
+    Serial.write(SERIAL_START_BYTE);
+    Serial.write(SERIAL_MODE_DATETIME);
+    Serial.write(timeClient.getHours());
+    Serial.write(timeClient.getMinutes());
+    Serial.write(timeClient.getDay());
+    Serial.write(SERIAL_STOP_BYTE);
 }

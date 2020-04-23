@@ -61,4 +61,8 @@ function boxOutline(layer) {
     sendUpdate(fd);
 }
 
-
+function datetime() {
+    const fd = new FormData();
+    fd.append("mode", "3");
+    sendUpdate(fd);
+}

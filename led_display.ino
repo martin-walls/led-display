@@ -30,6 +30,8 @@
 #define BOX_OUTLINE 36
 // special animations
 #define PACMAN 64
+// datetime
+#define DATETIME 16
 
 // animation flags
 #define TEXT_SCROLL_FRAME_DELAY 120
@@ -68,6 +70,7 @@
 #define SERIAL_MODE_OFF 0
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
+#define SERIAL_MODE_DATETIME 3
 
 #define PIN_MASTER_SLAVE_MODE A3
 #define ARDUINO_MASTER 0
@@ -127,7 +130,20 @@ uint16_t curStep;
 uint8_t activeSubAnim;
 uint16_t subAnimTotalSteps;
 uint16_t subAnimCurStep;
-    
+
+// 3 digit weekday abbreviation
+char daysOfWeek[7][4] = {
+    "SUN",
+    "MON",
+    "TUE",
+    "WED",
+    "THU",
+    "FRI",
+    "SAT"
+};
+uint8_t weekday;
+uint8_t hours;
+uint8_t mins;
 
 
 void setup() {
@@ -498,6 +514,9 @@ void updateFromSerial() {
             serialUpdateText();
         } else if (mode == SERIAL_MODE_ANIM) {
             serialUpdateAnim();
+        } else if (mode == SERIAL_MODE_DATETIME) {
+            serialUpdateDatetime();
+            datetime();
         }
     }
 }
@@ -566,6 +585,13 @@ void serialUpdateAnim() {
         boxOutline(layer);
     }
 
+    clearRemainingSerial();
+}
+
+void serialUpdateDatetime() {
+    hours = waitForSerialByte();
+    mins = waitForSerialByte();
+    weekday = waitForSerialByte();
     clearRemainingSerial();
 }
 
@@ -679,7 +705,7 @@ void staticText(const char *message, uint8_t z, uint8_t startX) {
     activeAnim = TEXT_STATIC;
     strcpy(text, message);
 
-    displayText(message, z, startX);
+    displayText(text, z, startX);
 }
 
 void staticTextBothLayers(const char *message, uint8_t startX) {
@@ -687,8 +713,8 @@ void staticTextBothLayers(const char *message, uint8_t startX) {
     activeAnim = TEXT_STATIC_BOTH_LAYERS;
     strcpy(text, message);
     
-    displayText(message, LAYER_FRONT, startX);
-    displayText(message, LAYER_BACK, startX);
+    displayText(text, LAYER_FRONT, startX);
+    displayText(text, LAYER_BACK, startX);
 }
 
 // Scrolls text from right to left.
@@ -804,6 +830,29 @@ void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
     setColForChar(c, col, 31, z);
 }
 
+// DATETIME
+
+void datetime() {
+    activeAnim = DATETIME;
+    char time[6];
+    itoa(hours, &(time[0]), 10);
+    if (time[1] == '\0') {
+        time[1] = time[0];
+        time[0] = '0';
+    }
+    itoa(mins, &(time[3]), 10);
+    if (time[4] == '\0') {
+        time[4] = time[3];
+        time[3] = '0';
+    }
+    time[2] = ':';
+    time[5] = '\0';
+    displayText(time, LAYER_FRONT, 2);
+
+    for (uint8_t i = 0; i < weekday; i++) {
+        setVoxelOn(31, 5 - i, LAYER_BACK);
+    }
+}
 
 
 // ANIMATION EFFECTS
