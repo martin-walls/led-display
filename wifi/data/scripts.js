@@ -16,23 +16,29 @@ function sendUpdate(fd) {
     xhr.send(fd);
 }
 
+function off() {
+    const fd = new FormData();
+    fd.append("mode", "0");
+    sendUpdate(fd);
+}
+
 function sendText(form) {
     const fd = new FormData(form);
-    fd.append("mode", "0");
+    fd.append("mode", "1");
 
     sendUpdate(fd);
 }
 
 function pacman() {
     const fd = new FormData();
-    fd.append("mode", "1");
+    fd.append("mode", "2");
     fd.append("animmode", "5");
     sendUpdate(fd);
 }
 
 function wipe(dir) {
     const fd = new FormData();
-    fd.append("mode", "1");
+    fd.append("mode", "2");
     fd.append("animmode", "1");
     fd.append("dir", dir);
     sendUpdate(fd);
@@ -40,7 +46,7 @@ function wipe(dir) {
 
 function wipeDiagonal(dirH, dirV) {
     const fd = new FormData();
-    fd.append("mode", "1");
+    fd.append("mode", "2");
     fd.append("animmode", "2");
     fd.append("dirH", dirH);
     fd.append("dirV", dirV);
@@ -49,7 +55,7 @@ function wipeDiagonal(dirH, dirV) {
 
 function boxOutline(layer) {
     const fd = new FormData();
-    fd.append("mode", 1);
+    fd.append("mode", "2");
     fd.append("animmode", "4");
     fd.append("layer", layer);
     sendUpdate(fd);

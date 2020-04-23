@@ -11,12 +11,11 @@
 #define SERIAL_CONFIG SERIAL_8N1
 #define SERIAL_START_BYTE 0xFF
 #define SERIAL_STOP_BYTE 0x00
-#define SERIAL_MODE_TEXT 1
-#define SERIAL_MODE_ANIM 2
 
 // post server codes
-#define POST_MODE_TEXT '0'
-#define POST_MODE_ANIM '1'
+#define POST_MODE_OFF '0'
+#define POST_MODE_TEXT '1'
+#define POST_MODE_ANIM '2'
 
 #define POST_TEXTMODE_STATIC '1'
 #define POST_TEXTMODE_SCROLL '2'
@@ -40,6 +39,9 @@
 #define POST_LAYER_BOTH '2'
 
 // serial codes
+#define SERIAL_MODE_OFF 0
+#define SERIAL_MODE_TEXT 1
+#define SERIAL_MODE_ANIM 2
 // text modes
 #define SERIAL_TEXT_STATIC 1
 #define SERIAL_TEXT_SCROLL 2
@@ -132,9 +134,6 @@ void setup() {
     //     digitalWrite(LED_BUILTIN, LOW);
     // });
 
-    // server.on("/", handleRoot);
-    // server.on("/text", handleTextMode);
-    // server.on("/anim", handleAnimMode);
     server.on("/update", handleEffectsUpdate);
 
     server.begin();
@@ -162,59 +161,6 @@ void loop() {
     }
 }
 
-void handleRoot() {
-    // server.sendHeader("Location", "/text", true);
-    // server.send(302, "text/plain", "");
-
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200);
-    digitalWrite(LED_BUILTIN, HIGH);
-}
-
-void handleTextMode() {
-
-
-
-    char textMode = server.arg("textmode")[0];
-    uint8_t mode = textMode - '0';
-
-    Serial.write(SERIAL_START_BYTE);
-    Serial.write(SERIAL_MODE_TEXT);
-    Serial.write(mode);
-    Serial.print(server.arg("text-input"));
-    Serial.write(SERIAL_STOP_BYTE);
-
-
-    // String message;
-    // message += server.arg("text-input") + '\n';
-    // message += server.arg("textmode");
-
-    // char message[2];
-    // message[1] = '\0';
-
-    // server.send(200, "text/plain", message);
-}
-
-// void handleAnimMode() {
-//     Serial.write(SERIAL_START_BYTE);
-//     Serial.write(SERIAL_MODE_ANIM);
-
-//     char animMode = server.arg("animmode")[0];
-//     Serial.write(animMode);
-//     if (animMode == WIPE) {
-//         uint8_t dir = server.arg("dir")[0] - '0';
-//         Serial.write(dir);
-//     } else if (animMode == WIPE_DIAGONAL) {
-//         uint8_t dir = server.arg("dir")[0] - '0';
-//         if (dir == 1) dir = 10;
-//         Serial.write(dir);
-//     } else if (animMode == BOX_OUTLINE) {
-//         uint8_t layer = server.arg("layer")[0] - '0';
-//         Serial.write(layer);
-//     }
-//     Serial.write(SERIAL_STOP_BYTE);
-// }
-
 void handleEffectsUpdate() {
     digitalWrite(LED_BUILTIN, LOW);
     delay(200);
@@ -224,69 +170,12 @@ void handleEffectsUpdate() {
 
     char mode = server.arg("mode")[0];
 
-    if (mode == POST_MODE_TEXT) {
+    if (mode == POST_MODE_OFF) {
+        Serial.write(SERIAL_MODE_OFF);
+    } else if (mode == POST_MODE_TEXT) {
         sendUpdateText();
-        // Serial.write(SERIAL_MODE_TEXT);
-        // char textMode = server.arg("textmode")[0];
-        // switch (textMode) {
-        //     case POST_TEXTMODE_STATIC:
-        //         Serial.write(SERIAL_TEXT_STATIC);
-        //         break;
-        //     case POST_TEXTMODE_SCROLL:  
-        //         Serial.write(SERIAL_TEXT_SCROLL);
-        //         break;
-        //     case POST_TEXTMODE_SCROLL_IF_LONG:
-        //         Serial.write(SERIAL_TEXT_SCROLL_IF_LONG);
-        //         break;
-        //     case POST_TEXTMODE_SCROLL_BOTH_LAYERS:
-        //         Serial.write(SERIAL_TEXT_SCROLL_BOTH_LAYERS);
-        //         break;
-        //     case POST_TEXTMODE_STATIC_BOTH_LAYERS:
-        //         Serial.write(SERIAL_TEXT_STATIC_BOTH_LAYERS);
-        //         break;
-        // }
-        // Serial.print(server.arg("text-input"));
     } else if (mode == POST_MODE_ANIM) {
         sendUpdateAnim();
-        // Serial.write(SERIAL_MODE_ANIM);
-        // char animMode = server.arg("animmode")[0];
-        
-        // if (animMode == POST_ANIMMODE_PACMAN) {
-        //     Serial.write(SERIAL_PACMAN);
-        // } else if (animMode == POST_ANIMMODE_WIPE) {
-        //     Serial.write(SERIAL_WIPE);
-        //     char dir = server.arg("dir")[0];
-        //     switch (dir) {
-        //         case POST_DIR_L_TO_R:
-        //             Serial.write(SERIAL_DIR_L_TO_R);
-        //             break;
-        //         case POST_DIR_R_TO_L:
-        //             Serial.write(SERIAL_DIR_R_TO_L);
-        //             break;
-        //         case POST_DIR_T_TO_B:
-        //             Serial.write(SERIAL_DIR_T_TO_B);
-        //             break;
-        //         case POST_DIR_B_TO_T:
-        //             Serial.write(SERIAL_DIR_B_TO_T);
-        //             break;
-        //     }
-        // } else if (animMode == POST_ANIMMODE_WIPE_DIAGONAL) {
-        //     Serial.write(SERIAL_WIPE_DIAGONAL);
-        //     char dirH = server.arg("dirH")[0];
-        //     char dirV = server.arg("dirV")[0];
-        //     uint8_t diagonalDir = 0;
-        //     if (dirH == POST_DIR_L_TO_R) {
-        //         diagonalDir |= SERIAL_DIR_L_TO_R;
-        //     } else {
-        //         diagonalDir |= SERIAL_DIR_R_TO_L;
-        //     }
-        //     if (dirV == POST_DIR_T_TO_B) {
-        //         diagonalDir |= SERIAL_DIR_T_TO_B;
-        //     } else {
-        //         diagonalDir |= SERIAL_DIR_B_TO_T;
-        //     }
-        //     Serial.write(diagonalDir);
-        // }
     }
 
     Serial.write(SERIAL_STOP_BYTE);

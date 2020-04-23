@@ -64,6 +64,8 @@
 #define SERIAL_CONFIG SERIAL_8N1
 #define SERIAL_START_BYTE 0xFF
 #define SERIAL_STOP_BYTE 0x00
+
+#define SERIAL_MODE_OFF 0
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
 
@@ -489,7 +491,10 @@ void updateFromSerial() {
     uint8_t inByte = Serial.read();
     if (inByte == SERIAL_START_BYTE) {
         uint8_t mode = waitForSerialByte();
-        if (mode == SERIAL_MODE_TEXT) {
+        if (mode == SERIAL_MODE_OFF) {
+            displayOff();
+            clearRemainingSerial();
+        } else if (mode == SERIAL_MODE_TEXT) {
             serialUpdateText();
         } else if (mode == SERIAL_MODE_ANIM) {
             serialUpdateAnim();
