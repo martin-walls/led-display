@@ -14,20 +14,55 @@
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
 
+// post server codes
+#define POST_MODE_TEXT '0'
+#define POST_MODE_ANIM '1'
+
+#define POST_TEXTMODE_STATIC '1'
+#define POST_TEXTMODE_SCROLL '2'
+#define POST_TEXTMODE_SCROLL_IF_LONG '3'
+#define POST_TEXTMODE_SCROLL_BOTH_LAYERS '4'
+#define POST_TEXTMODE_STATIC_BOTH_LAYERS '5'
+
+#define POST_ANIMMODE_WIPE '1'
+#define POST_ANIMMODE_WIPE_DIAGONAL '2'
+#define POST_ANIMMODE_SNAKE '3'
+#define POST_ANIMMODE_BOX_OUTLINE '4'
+#define POST_ANIMMODE_PACMAN '5'
+
+#define POST_DIR_L_TO_R '1'
+#define POST_DIR_R_TO_L '2'
+#define POST_DIR_T_TO_B '3'
+#define POST_DIR_B_TO_T '4'
+
+#define POST_LAYER_FRONT '0'
+#define POST_LAYER_BACK '1'
+#define POST_LAYER_BOTH '2'
+
+// serial codes
 // text modes
-#define TEXT_STATIC 1
-#define TEXT_SCROLL 2
-#define TEXT_SCROLL_IF_LONG 3
-#define TEXT_SCROLL_BOTH_LAYERS 4
-#define TEXT_STATIC_BOTH_LAYERS 5
+#define SERIAL_TEXT_STATIC 1
+#define SERIAL_TEXT_SCROLL 2
+#define SERIAL_TEXT_SCROLL_IF_LONG 3
+#define SERIAL_TEXT_SCROLL_BOTH_LAYERS 4
+#define SERIAL_TEXT_STATIC_BOTH_LAYERS 5
 // anim modes
-#define SOLID 32
-#define WIPE 33
-#define WIPE_DIAGONAL 34
-#define SNAKE 35
-#define BOX_OUTLINE 36
+#define SERIAL_SOLID 32
+#define SERIAL_WIPE 33
+#define SERIAL_WIPE_DIAGONAL 34
+#define SERIAL_SNAKE 35
+#define SERIAL_BOX_OUTLINE 36
 // special animations
-#define PACMAN 64
+#define SERIAL_PACMAN 64
+
+#define SERIAL_DIR_L_TO_R 0b000001
+#define SERIAL_DIR_R_TO_L 0b000010
+#define SERIAL_DIR_T_TO_B 0b000100
+#define SERIAL_DIR_B_TO_T 0b001000
+
+#define SERIAL_LAYER_FRONT 0
+#define SERIAL_LAYER_BACK 1
+#define SERIAL_LAYER_BOTH 2
 
 #define PIN_MASTER_SLAVE_MODE D7
 #define ARDUINO_MASTER 0
@@ -43,12 +78,13 @@
 
 const char *ssid = "EE-de2brd_EXT";
 const char *password = "golf-drift-key";
-const char *ARG_TEXT = "text";
 
 ESP8266WebServer server(80);
 // AsyncWebServer server(80);
 
 bool isMaster = false;
+
+char text[64];
 
 void setup() {
     pinMode(PIN_MASTER_SLAVE_MODE, INPUT);
@@ -97,8 +133,9 @@ void setup() {
     // });
 
     // server.on("/", handleRoot);
-    server.on("/text", handleTextMode);
-    server.on("/anim", handleAnimMode);
+    // server.on("/text", handleTextMode);
+    // server.on("/anim", handleAnimMode);
+    server.on("/update", handleEffectsUpdate);
 
     server.begin();
     // Serial.println("Server started");
@@ -135,13 +172,6 @@ void handleRoot() {
 }
 
 void handleTextMode() {
-    // if (server.args() > 0) {
-    //     if (server.arg(ARG_TEXT) && isMaster) {
-    //         Serial.print(server.arg(ARG_TEXT));
-    //     }
-    // }
-
-    // server.send(200, "text/html", textHTML);
 
 
 
@@ -165,22 +195,206 @@ void handleTextMode() {
     // server.send(200, "text/plain", message);
 }
 
-void handleAnimMode() {
+// void handleAnimMode() {
+//     Serial.write(SERIAL_START_BYTE);
+//     Serial.write(SERIAL_MODE_ANIM);
+
+//     char animMode = server.arg("animmode")[0];
+//     Serial.write(animMode);
+//     if (animMode == WIPE) {
+//         uint8_t dir = server.arg("dir")[0] - '0';
+//         Serial.write(dir);
+//     } else if (animMode == WIPE_DIAGONAL) {
+//         uint8_t dir = server.arg("dir")[0] - '0';
+//         if (dir == 1) dir = 10;
+//         Serial.write(dir);
+//     } else if (animMode == BOX_OUTLINE) {
+//         uint8_t layer = server.arg("layer")[0] - '0';
+//         Serial.write(layer);
+//     }
+//     Serial.write(SERIAL_STOP_BYTE);
+// }
+
+void handleEffectsUpdate() {
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(200);
+    digitalWrite(LED_BUILTIN, HIGH);
+
     Serial.write(SERIAL_START_BYTE);
+
+    char mode = server.arg("mode")[0];
+
+    if (mode == POST_MODE_TEXT) {
+        sendUpdateText();
+        // Serial.write(SERIAL_MODE_TEXT);
+        // char textMode = server.arg("textmode")[0];
+        // switch (textMode) {
+        //     case POST_TEXTMODE_STATIC:
+        //         Serial.write(SERIAL_TEXT_STATIC);
+        //         break;
+        //     case POST_TEXTMODE_SCROLL:  
+        //         Serial.write(SERIAL_TEXT_SCROLL);
+        //         break;
+        //     case POST_TEXTMODE_SCROLL_IF_LONG:
+        //         Serial.write(SERIAL_TEXT_SCROLL_IF_LONG);
+        //         break;
+        //     case POST_TEXTMODE_SCROLL_BOTH_LAYERS:
+        //         Serial.write(SERIAL_TEXT_SCROLL_BOTH_LAYERS);
+        //         break;
+        //     case POST_TEXTMODE_STATIC_BOTH_LAYERS:
+        //         Serial.write(SERIAL_TEXT_STATIC_BOTH_LAYERS);
+        //         break;
+        // }
+        // Serial.print(server.arg("text-input"));
+    } else if (mode == POST_MODE_ANIM) {
+        sendUpdateAnim();
+        // Serial.write(SERIAL_MODE_ANIM);
+        // char animMode = server.arg("animmode")[0];
+        
+        // if (animMode == POST_ANIMMODE_PACMAN) {
+        //     Serial.write(SERIAL_PACMAN);
+        // } else if (animMode == POST_ANIMMODE_WIPE) {
+        //     Serial.write(SERIAL_WIPE);
+        //     char dir = server.arg("dir")[0];
+        //     switch (dir) {
+        //         case POST_DIR_L_TO_R:
+        //             Serial.write(SERIAL_DIR_L_TO_R);
+        //             break;
+        //         case POST_DIR_R_TO_L:
+        //             Serial.write(SERIAL_DIR_R_TO_L);
+        //             break;
+        //         case POST_DIR_T_TO_B:
+        //             Serial.write(SERIAL_DIR_T_TO_B);
+        //             break;
+        //         case POST_DIR_B_TO_T:
+        //             Serial.write(SERIAL_DIR_B_TO_T);
+        //             break;
+        //     }
+        // } else if (animMode == POST_ANIMMODE_WIPE_DIAGONAL) {
+        //     Serial.write(SERIAL_WIPE_DIAGONAL);
+        //     char dirH = server.arg("dirH")[0];
+        //     char dirV = server.arg("dirV")[0];
+        //     uint8_t diagonalDir = 0;
+        //     if (dirH == POST_DIR_L_TO_R) {
+        //         diagonalDir |= SERIAL_DIR_L_TO_R;
+        //     } else {
+        //         diagonalDir |= SERIAL_DIR_R_TO_L;
+        //     }
+        //     if (dirV == POST_DIR_T_TO_B) {
+        //         diagonalDir |= SERIAL_DIR_T_TO_B;
+        //     } else {
+        //         diagonalDir |= SERIAL_DIR_B_TO_T;
+        //     }
+        //     Serial.write(diagonalDir);
+        // }
+    }
+
+    Serial.write(SERIAL_STOP_BYTE);
+}
+
+void sendUpdateText() {
+    Serial.write(SERIAL_MODE_TEXT);
+
+    char textMode = server.arg("textmode")[0];
+    switch (textMode) {
+        case POST_TEXTMODE_STATIC:
+            Serial.write(SERIAL_TEXT_STATIC);
+            break;
+        case POST_TEXTMODE_SCROLL:  
+            Serial.write(SERIAL_TEXT_SCROLL);
+            break;
+        case POST_TEXTMODE_SCROLL_IF_LONG:
+            Serial.write(SERIAL_TEXT_SCROLL_IF_LONG);
+            break;
+        case POST_TEXTMODE_SCROLL_BOTH_LAYERS:
+            Serial.write(SERIAL_TEXT_SCROLL_BOTH_LAYERS);
+            break;
+        case POST_TEXTMODE_STATIC_BOTH_LAYERS:
+            Serial.write(SERIAL_TEXT_STATIC_BOTH_LAYERS);
+            break;
+    }
+
+    Serial.print(server.arg("text-input"));
+}
+
+void sendUpdateAnim() {
     Serial.write(SERIAL_MODE_ANIM);
 
     char animMode = server.arg("animmode")[0];
-    Serial.write(animMode);
-    if (animMode == WIPE) {
-        uint8_t dir = server.arg("dir")[0] - '0';
-        Serial.write(dir);
-    } else if (animMode == WIPE_DIAGONAL) {
-        uint8_t dir = server.arg("dir")[0] - '0';
-        if (dir == 1) dir = 10;
-        Serial.write(dir);
-    } else if (animMode == BOX_OUTLINE) {
-        uint8_t layer = server.arg("layer")[0] - '0';
-        Serial.write(layer);
+
+    if (animMode == POST_ANIMMODE_PACMAN) {
+        sendUpdatePacman();
+    } else if (animMode == POST_ANIMMODE_WIPE) {
+        sendUpdateWipe();
+    } else if (animMode == POST_ANIMMODE_WIPE_DIAGONAL) {
+        sendUpdateWipeDiagonal();
+    } else if (animMode == POST_ANIMMODE_BOX_OUTLINE) {
+        sendUpdateBoxOutline();
     }
-    Serial.write(SERIAL_STOP_BYTE);
+}
+
+void sendUpdatePacman() {
+    Serial.write(SERIAL_PACMAN);
+}
+
+void sendUpdateWipe() {
+    Serial.write(SERIAL_WIPE);
+
+    char dir = server.arg("dir")[0];
+
+    switch(dir) {
+        case POST_DIR_L_TO_R:
+            Serial.write(SERIAL_DIR_L_TO_R);
+            break;
+        case POST_DIR_R_TO_L:
+            Serial.write(SERIAL_DIR_R_TO_L);
+            break;
+        case POST_DIR_T_TO_B:
+            Serial.write(SERIAL_DIR_T_TO_B);
+            break;
+        case POST_DIR_B_TO_T:
+            Serial.write(SERIAL_DIR_B_TO_T);
+            break;
+    }
+}
+
+void sendUpdateWipeDiagonal() {
+    Serial.write(SERIAL_WIPE_DIAGONAL);
+
+    char dirH = server.arg("dirH")[0];
+    char dirV = server.arg("dirV")[0];
+
+    uint8_t diagonalDir = 0;
+
+    if (dirH == POST_DIR_L_TO_R) {
+        diagonalDir |= SERIAL_DIR_L_TO_R;
+    } else {
+        diagonalDir |= SERIAL_DIR_R_TO_L;
+    }
+
+    if (dirV == POST_DIR_T_TO_B) {
+        diagonalDir |= SERIAL_DIR_T_TO_B;
+    } else {
+        diagonalDir |= SERIAL_DIR_B_TO_T;
+    }
+
+    Serial.write(diagonalDir);
+}
+
+void sendUpdateBoxOutline() {
+    Serial.write(SERIAL_BOX_OUTLINE);
+
+    char layer = server.arg("layer")[0];
+
+    switch (layer) {
+        case POST_LAYER_FRONT:
+            Serial.write(SERIAL_LAYER_FRONT);
+            break;
+        case POST_LAYER_BACK:
+            Serial.write(SERIAL_LAYER_BACK);
+            break;
+        case POST_LAYER_BOTH:
+            Serial.write(SERIAL_LAYER_BOTH);
+            break;
+    }
 }

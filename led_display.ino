@@ -229,252 +229,6 @@ void setup() {
     randomSeed(analogRead(0));
 }
 
-void loop() {
-    wifiEnabledMode = digitalRead(PIN_WIFI_ENABLED);
-    if (wifiEnabledMode == WIFI_ENABLED) {
-        setMasterSlaveMode(WIFI_MASTER);
-    } else if (wifiEnabledMode == WIFI_DISABLED) {
-        setMasterSlaveMode(ARDUINO_MASTER);
-    }
-
-    // store new mode in EEPROM memory, update display
-    if (modeChanged && masterSlaveMode == ARDUINO_MASTER) {
-        delay(1000);
-        fillMatrix(0);
-
-        EEPROM.write(eeModeAddr, mode);
-        modeChanged = false;
-
-        switch (mode) {
-            case 0:
-                pacmanInit();
-                break;
-            case 1:
-                scrollText("HELLO WORLD", LAYER_FRONT);
-                break;
-            case 2:
-                scrollTextBothLayers("HIIII");
-                break;
-            case 3:
-                staticTextBothLayers("ALOHA", 2);
-                break;
-            case 4:
-                wipe(DIR_L_TO_R);
-                break;
-            case 5:
-                wipe(DIR_R_TO_L);
-                break;
-            case 6:
-                wipe(DIR_B_TO_T);
-                break;
-            case 7:
-                wipe(DIR_T_TO_B);
-                break;
-            case 8:
-                wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
-                break;
-            default:
-                displayOff();
-                break;
-        }
-    } else if (masterSlaveMode == WIFI_MASTER) {
-        if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_DISCONNECTED && wifiConnectedMode == WIFI_CONNECTED) {
-            wifiConnectedMode = WIFI_DISCONNECTED;
-            scrollText("CONNECTING...", LAYER_FRONT);
-        } else if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_CONNECTED && wifiConnectedMode == WIFI_DISCONNECTED) {
-            wifiConnectedMode = WIFI_CONNECTED;
-            displayOff();
-        } else {
-            if (Serial.available() > 0) {
-                uint8_t inByte = Serial.read();
-                if (inByte == SERIAL_START_BYTE) {
-                    while (!Serial.available()) {}
-                    uint8_t mode = Serial.read();
-                    if (mode == SERIAL_MODE_TEXT) {
-                        char inText[64];
-                        while (!Serial.available()) {}
-                        uint8_t textMode = Serial.read();
-                        uint8_t i = 0;
-                        while (inByte != SERIAL_STOP_BYTE) {
-                            // don't overflow max len of text
-                            if (i == 63) {
-                                inText[i] = '\0';
-                                // clear rest of serial message
-                                while (inByte != SERIAL_STOP_BYTE) {
-                                    while (!Serial.available()) {}
-                                    inByte = Serial.read();
-                                }
-                                break;
-                            }
-                            while (!Serial.available()) {}
-                            inByte = Serial.read();
-                            if (inByte == SERIAL_STOP_BYTE) {
-                                inText[i] = '\0';
-                            } else {
-                                inText[i] = inByte;
-                            }
-                            i++;
-                        }
-                        textToUpperCase(inText);
-                        switch (textMode) {
-                            case TEXT_STATIC:
-                                staticText(inText, LAYER_FRONT, 0);
-                                break;
-                            case TEXT_SCROLL:
-                                scrollText(inText, LAYER_FRONT);
-                                break;
-                            default:
-                            case TEXT_SCROLL_IF_LONG:
-                                scrollTextIfLong(inText, LAYER_FRONT);
-                                break;
-                            case TEXT_SCROLL_BOTH_LAYERS:
-                                scrollTextBothLayers(inText);
-                                break;
-                            case TEXT_STATIC_BOTH_LAYERS:
-                                staticTextBothLayers(inText, 0);
-                                break;
-                        }
-                    } else if (mode == SERIAL_MODE_ANIM) {
-                        while (!Serial.available()) {}
-                        uint8_t animMode = Serial.read();
-                        // char test[3];
-                        // itoa(animMode, test, 10);
-                        // staticText(test, LAYER_FRONT, 2);
-                        switch (animMode) {
-                            case SOLID:
-                                break;
-                            case WIPE:
-                                while (!Serial.available()) {}
-                                uint8_t wipeDir = Serial.read();
-                                wipe(wipeDir);
-                                break;
-                            case WIPE_DIAGONAL:
-                                while (!Serial.available()) {}
-                                uint8_t wipeDiagonalDir = Serial.read();
-                                wipeDiagonal(wipeDiagonalDir);
-                                // char test2[3];
-                                // itoa(wipeDiagonalDir, test2, 10);
-                                // staticText(test2, LAYER_FRONT, 2);
-                                break;
-                            case SNAKE:
-                                break;
-                            case BOX_OUTLINE:
-                                while (!Serial.available()) {}
-                                uint8_t layer = Serial.read();
-                                // char test[2];
-                                // itoa(layer, test, 10);
-                                // staticText(test, LAYER_FRONT, 2);
-                                boxOutline(layer);
-                                break;
-                            case PACMAN:
-                                pacmanInit();
-                                break;
-                        }
-                        while (inByte != SERIAL_STOP_BYTE) {
-                            while (!Serial.available()) {}
-                            inByte = Serial.read();
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    updateDisplay();
-
-
-/*
-    // set effect for mode
-    switch (mode) {
-        case 0:
-            displayText("HIII", LAYER_FRONT, 2);
-            break;
-        case 1:
-            scrollTextBothLayers("HELLO WORLD!", true);
-            break;
-        case 2:
-            pacman();
-            break;
-        case 3:
-            wipe(DIR_L_TO_R);
-            if (modeChanged) break;
-            delay(1000);
-            wipe(DIR_R_TO_L);
-            if (modeChanged) break;
-            delay(1000);
-            wipe(DIR_B_TO_T);
-            if (modeChanged) break;
-            delay(1000);
-            wipe(DIR_T_TO_B);
-            if (modeChanged) break;
-            delay(1000);
-            break;
-        case 4:
-            wipeDiagonal(DIR_L_TO_R, DIR_B_TO_T);
-            if (modeChanged) break;
-            delay(1000);
-            wipeDiagonal(DIR_L_TO_R, DIR_T_TO_B);
-            if (modeChanged) break;
-            delay(1000);
-            wipeDiagonal(DIR_R_TO_L, DIR_B_TO_T);
-            if (modeChanged) break;
-            delay(1000);
-            wipeDiagonal(DIR_R_TO_L, DIR_T_TO_B);
-            if (modeChanged) break;
-            delay(1000);
-            break;
-        case 5:
-            fillMatrix(0);
-            boxOutline(0, 0, 31, 5, LAYER_FRONT);
-            boxOutline(0, 0, 31, 5, LAYER_BACK);
-            if (modeChanged) break;
-            delay(500);
-
-            fillMatrix(0);
-            boxOutline(1, 1, 30, 4, LAYER_FRONT);
-            boxOutline(1, 1, 30, 4, LAYER_BACK);
-            if (modeChanged) break;
-            delay(500);
-            
-            fillMatrix(0);
-            boxOutline(2, 2, 29, 3, LAYER_FRONT);
-            boxOutline(2, 2, 29, 3, LAYER_BACK);
-            if (modeChanged) break;
-            delay(500);
-
-            fillMatrix(0);
-            if (modeChanged) break;
-            delay(500);
-            break;
-        case 6:
-            boxOutline(0, 0, 31, 5, LAYER_FRONT);
-            boxOutline(0, 0, 31, 5, LAYER_BACK);
-            break;
-        case 7:
-            scrollText("GOD IS GOOD ", LAYER_FRONT, false);
-            if (modeChanged) break;
-            scrollText("ALL THE TIME ", LAYER_BACK, false);
-            if (modeChanged) break;
-            scrollText("AND ALL THE TIME ", LAYER_FRONT, false);
-            if (modeChanged) break;
-            scrollText("GOD IS GOOD!", LAYER_BACK, true);
-            break;
-        case 8:
-            randomSnakeXYZ(24);
-            break;
-        case 9:
-            randomSnakeXYOneLayer(LAYER_FRONT, 8);
-            break;
-        case 10:
-            randomSnakeXYBothLayers(8);
-            break;
-        default:
-            fillMatrix(0);
-            break;
-    }
-    */
-}
-
 // interrupt routine for timer 2
 ISR (TIMER2_COMPA_vect) {
     // draw data from the matrix for the current row
@@ -571,6 +325,257 @@ ISR (PCINT0_vect) {
     }
 }
 
+void loop() {
+    wifiEnabledMode = digitalRead(PIN_WIFI_ENABLED);
+    if (wifiEnabledMode == WIFI_ENABLED) {
+        setMasterSlaveMode(WIFI_MASTER);
+    } else if (wifiEnabledMode == WIFI_DISABLED) {
+        setMasterSlaveMode(ARDUINO_MASTER);
+    }
+
+    // store new mode in EEPROM memory, update display
+    if (modeChanged && masterSlaveMode == ARDUINO_MASTER) {
+        delay(1000);
+        fillMatrix(0);
+
+        EEPROM.write(eeModeAddr, mode);
+        modeChanged = false;
+
+        updateDisplayToNewMode();
+    } else if (masterSlaveMode == WIFI_MASTER) {
+        if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_DISCONNECTED && wifiConnectedMode == WIFI_CONNECTED) {
+            wifiConnectedMode = WIFI_DISCONNECTED;
+            scrollText("CONNECTING...", LAYER_FRONT);
+        } else if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_CONNECTED && wifiConnectedMode == WIFI_DISCONNECTED) {
+            wifiConnectedMode = WIFI_CONNECTED;
+            displayOff();
+        } else {
+            if (Serial.available() > 0) {
+                updateFromSerial();
+            }
+        }
+    }
+
+    updateDisplay();
+
+/*
+    // set effect for mode
+    switch (mode) {
+        case 0:
+            displayText("HIII", LAYER_FRONT, 2);
+            break;
+        case 1:
+            scrollTextBothLayers("HELLO WORLD!", true);
+            break;
+        case 2:
+            pacman();
+            break;
+        case 3:
+            wipe(DIR_L_TO_R);
+            if (modeChanged) break;
+            delay(1000);
+            wipe(DIR_R_TO_L);
+            if (modeChanged) break;
+            delay(1000);
+            wipe(DIR_B_TO_T);
+            if (modeChanged) break;
+            delay(1000);
+            wipe(DIR_T_TO_B);
+            if (modeChanged) break;
+            delay(1000);
+            break;
+        case 4:
+            wipeDiagonal(DIR_L_TO_R, DIR_B_TO_T);
+            if (modeChanged) break;
+            delay(1000);
+            wipeDiagonal(DIR_L_TO_R, DIR_T_TO_B);
+            if (modeChanged) break;
+            delay(1000);
+            wipeDiagonal(DIR_R_TO_L, DIR_B_TO_T);
+            if (modeChanged) break;
+            delay(1000);
+            wipeDiagonal(DIR_R_TO_L, DIR_T_TO_B);
+            if (modeChanged) break;
+            delay(1000);
+            break;
+        case 5:
+            fillMatrix(0);
+            boxOutline(0, 0, 31, 5, LAYER_FRONT);
+            boxOutline(0, 0, 31, 5, LAYER_BACK);
+            if (modeChanged) break;
+            delay(500);
+
+            fillMatrix(0);
+            boxOutline(1, 1, 30, 4, LAYER_FRONT);
+            boxOutline(1, 1, 30, 4, LAYER_BACK);
+            if (modeChanged) break;
+            delay(500);
+            
+            fillMatrix(0);
+            boxOutline(2, 2, 29, 3, LAYER_FRONT);
+            boxOutline(2, 2, 29, 3, LAYER_BACK);
+            if (modeChanged) break;
+            delay(500);
+
+            fillMatrix(0);
+            if (modeChanged) break;
+            delay(500);
+            break;
+        case 6:
+            boxOutline(0, 0, 31, 5, LAYER_FRONT);
+            boxOutline(0, 0, 31, 5, LAYER_BACK);
+            break;
+        case 7:
+            scrollText("GOD IS GOOD ", LAYER_FRONT, false);
+            if (modeChanged) break;
+            scrollText("ALL THE TIME ", LAYER_BACK, false);
+            if (modeChanged) break;
+            scrollText("AND ALL THE TIME ", LAYER_FRONT, false);
+            if (modeChanged) break;
+            scrollText("GOD IS GOOD!", LAYER_BACK, true);
+            break;
+        case 8:
+            randomSnakeXYZ(24);
+            break;
+        case 9:
+            randomSnakeXYOneLayer(LAYER_FRONT, 8);
+            break;
+        case 10:
+            randomSnakeXYBothLayers(8);
+            break;
+        default:
+            fillMatrix(0);
+            break;
+    }
+    */
+}
+
+void updateDisplayToNewMode() {
+    switch (mode) {
+        case 0:
+            pacmanInit();
+            break;
+        case 1:
+            scrollText("HELLO WORLD", LAYER_FRONT);
+            break;
+        case 2:
+            scrollTextBothLayers("HIIII");
+            break;
+        case 3:
+            staticTextBothLayers("ALOHA", 2);
+            break;
+        case 4:
+            wipe(DIR_L_TO_R);
+            break;
+        case 5:
+            wipe(DIR_R_TO_L);
+            break;
+        case 6:
+            wipe(DIR_B_TO_T);
+            break;
+        case 7:
+            wipe(DIR_T_TO_B);
+            break;
+        case 8:
+            wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
+            break;
+        default:
+            displayOff();
+            break;
+    }
+}
+
+void updateFromSerial() {
+    uint8_t inByte = Serial.read();
+    if (inByte == SERIAL_START_BYTE) {
+        uint8_t mode = waitForSerialByte();
+        if (mode == SERIAL_MODE_TEXT) {
+            serialUpdateText();
+        } else if (mode == SERIAL_MODE_ANIM) {
+            serialUpdateAnim();
+        }
+    }
+}
+
+void serialUpdateText() {
+    char inText[64];
+    uint8_t textMode = waitForSerialByte();
+
+    // read text from serial
+    uint8_t i = 0;
+    uint8_t inByte = ~SERIAL_STOP_BYTE;
+    while (inByte != SERIAL_STOP_BYTE) {
+        if (i == 63) {
+            inText[i] = '\0';
+            // clear remaining serial
+            while (inByte != SERIAL_STOP_BYTE) {
+                inByte = waitForSerialByte();
+            }
+            break;
+        }
+
+        inByte = waitForSerialByte();
+        if (inByte == SERIAL_STOP_BYTE) {
+            inText[i] = '\0';
+        } else {
+            inText[i] = inByte;
+        }
+
+        i++;
+    }
+    textToUpperCase(inText);
+
+    switch (textMode) {
+        case TEXT_STATIC:
+            staticText(inText, LAYER_FRONT, 0);
+            break;
+        case TEXT_SCROLL:
+            scrollText(inText, LAYER_FRONT);
+            break;
+        default:
+        case TEXT_SCROLL_IF_LONG:
+            scrollTextIfLong(inText, LAYER_FRONT);
+            break;
+        case TEXT_SCROLL_BOTH_LAYERS:
+            scrollTextBothLayers(inText);
+            break;
+        case TEXT_STATIC_BOTH_LAYERS:
+            staticTextBothLayers(inText, 0);
+            break;
+    }
+}
+
+void serialUpdateAnim() {
+    uint8_t animMode = waitForSerialByte();
+
+    if (animMode == PACMAN) {
+        pacmanInit();
+    } else if (animMode == WIPE) {
+        uint8_t wipeDir = waitForSerialByte();
+        wipe(wipeDir);
+    } else if (animMode == WIPE_DIAGONAL) {
+        uint8_t wipeDir = waitForSerialByte();
+        wipeDiagonal(wipeDir);
+    } else if (animMode == BOX_OUTLINE) {
+        uint8_t layer = waitForSerialByte();
+        boxOutline(layer);
+    }
+
+    clearRemainingSerial();
+}
+
+uint8_t waitForSerialByte() {
+    while (!Serial.available()) {}
+    return Serial.read();
+}
+
+void clearRemainingSerial() {
+    uint8_t inByte = ~SERIAL_STOP_BYTE;
+    while (inByte != SERIAL_STOP_BYTE) {
+        inByte = waitForSerialByte();
+    }
+}
+
 void setMasterSlaveMode(uint8_t mode) {
     masterSlaveMode = mode;
     digitalWrite(PIN_MASTER_SLAVE_MODE, mode);
@@ -652,6 +657,8 @@ void displayMode() {
 // Displays text.
 // If text is wider than matrix, scrolls text, else displays statically.
 void scrollTextIfLong(const char *message, uint8_t z) {
+    fillMatrix(0);
+
     uint16_t len = calculateTextPixelWidth(message, false);
 
     if (len > 32) {
@@ -889,6 +896,7 @@ void wipeUpdate() {
 }
 
 void wipeDiagonal(uint8_t direction) {
+    fillMatrix(0);
     activeAnim = WIPE_DIAGONAL;
     animFlags = 0;
     animFlags |= direction;
@@ -938,6 +946,7 @@ void boxOutline(uint8_t layer) {
 // PACMAN ANIMATION
 
 void pacmanInit() {
+    fillMatrix(0);
     activeAnim = PACMAN;
     animFlags = 0;
     totalSteps = 8;

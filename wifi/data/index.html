@@ -10,7 +10,7 @@
         <div id="text">
             <form id="text-form" action="#">
                 <p>Display text (max 63 chars):</p>
-                <input id="text-input" type="text" name="text-input" maxlength="63" />
+                <input id="text-input" type="text" name="text-input" minLength="1"  maxlength="63" />
                 <input type="submit" value="Submit">
 
                 <p>Text mode:</p>
@@ -34,17 +34,17 @@
             <br>
             <button type="button" onclick="wipe(2)">Right to Left</button>
             <br>
-            <button type="button" onclick="wipe(4)">Top to Bottom</button>
+            <button type="button" onclick="wipe(3)">Top to Bottom</button>
             <br>
-            <button type="button" onclick="wipe(8)">Bottom to Top</button>
+            <button type="button" onclick="wipe(4)">Bottom to Top</button>
             <br>
-            <button type="button" onclick="wipeDiagonal(9)">Bottom left to top right</button>
+            <button type="button" onclick="wipeDiagonal(1, 4)">Bottom left to top right</button>
             <br>
-            <button type="button" onclick="wipeDiagonal(5)">Top left to bottom right</button>
+            <button type="button" onclick="wipeDiagonal(1, 3)">Top left to bottom right</button>
             <br>
-            <button type="button" onclick="wipeDiagonal(10)">Bottom right to top left</button>
+            <button type="button" onclick="wipeDiagonal(2, 4)">Bottom right to top left</button>
             <br>
-            <button type="button" onclick="wipeDiagonal(6)">Top right to bottom left</button>
+            <button type="button" onclick="wipeDiagonal(2, 3)">Top right to bottom left</button>
 
             <p>Outline</p>
             <button type="button" onclick="boxOutline(0)">Front layer</button>

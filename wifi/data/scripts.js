@@ -1,13 +1,3 @@
-function sendText(form) {
-    const xhr = new XMLHttpRequest();
-
-    const fd = new FormData(form);
-
-    xhr.open("POST", "/text");
-
-    xhr.send(fd);
-}
-
 function onLoad() {
     const form = document.getElementById("text-form");
 
@@ -18,53 +8,51 @@ function onLoad() {
     })
 }
 
-function pacman() {
+function sendUpdate(fd) {
     const xhr = new XMLHttpRequest();
 
-    const fd = new FormData();
-
-    fd.append("animmode", String.fromCharCode(64));
-
-    xhr.open("POST", "/anim");
+    xhr.open("POST", "/update");
 
     xhr.send(fd);
+}
+
+function sendText(form) {
+    const fd = new FormData(form);
+    fd.append("mode", "0");
+
+    sendUpdate(fd);
+}
+
+function pacman() {
+    const fd = new FormData();
+    fd.append("mode", "1");
+    fd.append("animmode", "5");
+    sendUpdate(fd);
 }
 
 function wipe(dir) {
-    const xhr = new XMLHttpRequest();
-
     const fd = new FormData();
-
-    fd.append("animmode", String.fromCharCode(33));
+    fd.append("mode", "1");
+    fd.append("animmode", "1");
     fd.append("dir", dir);
-
-    xhr.open("POST", "/anim");
-
-    xhr.send(fd);
+    sendUpdate(fd);
 }
 
-function wipeDiagonal(dir) {
-    const xhr = new XMLHttpRequest();
-
+function wipeDiagonal(dirH, dirV) {
     const fd = new FormData();
-
-    fd.append("animmode", String.fromCharCode(34));
-    fd.append("dir", dir);
-
-    xhr.open("POST", "/anim");
-
-    xhr.send(fd);
+    fd.append("mode", "1");
+    fd.append("animmode", "2");
+    fd.append("dirH", dirH);
+    fd.append("dirV", dirV);
+    sendUpdate(fd);
 }
 
 function boxOutline(layer) {
-    const xhr = new XMLHttpRequest();
-
     const fd = new FormData();
-
-    fd.append("animmode", String.fromCharCode(36));
+    fd.append("mode", 1);
+    fd.append("animmode", "4");
     fd.append("layer", layer);
-
-    xhr.open("POST", "/anim");
-
-    xhr.send(fd);
+    sendUpdate(fd);
 }
+
+
