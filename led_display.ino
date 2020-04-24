@@ -75,6 +75,8 @@
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
 #define SERIAL_MODE_DATETIME 3
+#define SERIAL_SLEEP 4
+#define SERIAL_WAKE 5
 
 #define PIN_MASTER_SLAVE_MODE A3
 #define ARDUINO_MASTER 0
@@ -145,6 +147,8 @@ char daysOfWeek[7][4] = {
 uint8_t weekday;
 uint8_t hours;
 uint8_t mins;
+
+bool isSleeping = false;
 
 
 void setup() {
@@ -375,7 +379,11 @@ void loop() {
         }
     }
 
-    updateDisplay();
+    if (!isSleeping) {
+        updateDisplay();
+    } else {
+        fillMatrix(0);
+    }
 
 /*
     // set effect for mode
@@ -518,6 +526,12 @@ void updateFromSerial() {
         } else if (mode == SERIAL_MODE_DATETIME) {
             serialUpdateDatetime();
             datetime();
+        } else if (mode == SERIAL_SLEEP) {
+            isSleeping = true;
+            clearRemainingSerial();
+        } else if (mode == SERIAL_WAKE) {
+            isSleeping = false;
+            clearRemainingSerial();
         }
     }
 }
@@ -839,7 +853,7 @@ void datetime() {
     itoa(hours, &(time[0]), 10);
     if (time[1] == '\0') {
         time[1] = time[0];
-        time[0] = '0';
+        time[0] = ' ';
     }
     itoa(mins, &(time[5]), 10);
     if (time[6] == '\0') {

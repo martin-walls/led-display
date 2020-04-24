@@ -46,6 +46,8 @@
 #define SERIAL_MODE_TEXT 1
 #define SERIAL_MODE_ANIM 2
 #define SERIAL_MODE_DATETIME 3
+#define SERIAL_SLEEP 4
+#define SERIAL_WAKE 5
 // text modes
 #define SERIAL_TEXT_STATIC 1
 #define SERIAL_TEXT_SCROLL 2
@@ -86,6 +88,9 @@
 #define UTC_OFFSET_SECONDS 3600
 #define DATETIME_UPDATE_MILLIS 10000
 
+#define SLEEP_TIME_START_HRS 22
+#define SLEEP_TIME_END_HRS 8
+
 const char *ssid = "EE-de2brd_EXT";
 const char *password = "golf-drift-key";
 
@@ -97,6 +102,8 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS);
 
 // default to datetime when power on
 bool isDatetimeMode = true;
+bool sleepAtNightEnabled = true;
+bool isSleeping = false;
 uint32_t lastDatetimeUpdate;
 uint8_t lastDatetimeMins;
 
@@ -178,13 +185,34 @@ void loop() {
         Serial.end();
     }
 
-    if (isDatetimeMode) {
-        timeClient.update();
+    timeClient.update();
+
+    if (isDatetimeMode && !isSleeping) {
         if (timeClient.getMinutes() != lastDatetimeMins) {
             sendSerialDatetimePacket();
             lastDatetimeMins = timeClient.getMinutes();
         }
     }
+
+    if (sleepAtNightEnabled) {
+        if (!isSleeping && isSleepTime()) {
+            writeSerialByteWithHeaders(SERIAL_SLEEP);
+            isSleeping = true;
+        } else if (isSleeping && !isSleepTime()) {
+            writeSerialByteWithHeaders(SERIAL_WAKE);
+            isSleeping = false;
+        }
+    }
+}
+
+bool isSleepTime() {
+    return timeClient.getHours() > SLEEP_TIME_START_HRS || timeClient.getHours() < SLEEP_TIME_END_HRS;
+}
+
+void writeSerialByteWithHeaders(uint8_t toWrite) {
+    Serial.write(SERIAL_START_BYTE);
+    Serial.write(toWrite);
+    Serial.write(SERIAL_STOP_BYTE);
 }
 
 void handleEffectsUpdate() {
