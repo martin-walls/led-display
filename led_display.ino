@@ -6,6 +6,10 @@
 #define LAYER_FRONT 0
 #define LAYER_BACK 1
 
+#define LAYER_DISPLAY_MODE_BOTH 0
+#define LAYER_DISPLAY_MODE_FRONT_ONLY 1
+#define LAYER_DISPLAY_MODE_BACK_ONLY 2
+
 #define BTN_ON 0
 #define BTN_OFF 1
 
@@ -98,6 +102,8 @@ volatile uint16_t matrix[2][6][2];
 // current row being output
 volatile uint8_t currentRow = 0;
 
+uint8_t layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
+
 // millis of last button press
 uint32_t lastBtnIntMillis = 0;
 // current mode
@@ -135,15 +141,15 @@ uint16_t subAnimTotalSteps;
 uint16_t subAnimCurStep;
 
 // 3 digit weekday abbreviation
-char daysOfWeek[7][4] = {
-    "SUN",
-    "MON",
-    "TUE",
-    "WED",
-    "THU",
-    "FRI",
-    "SAT"
-};
+// char daysOfWeek[7][4] = {
+//     "SUN",
+//     "MON",
+//     "TUE",
+//     "WED",
+//     "THU",
+//     "FRI",
+//     "SAT"
+// };
 uint8_t weekday;
 uint8_t hours;
 uint8_t mins;
@@ -303,8 +309,24 @@ ISR (TIMER2_COMPA_vect) {
     // increment current row 
     currentRow++;
 
-    if (currentRow == 12) {
-        currentRow = 0;
+    // if an animation only uses one layer, only output to that layer
+    // this should make that layer brighter as it will have a 1/6 duty cycle
+    // rather than 1/12
+    if (layerDisplayMode == LAYER_DISPLAY_MODE_FRONT_ONLY) {
+        if (currentRow >= 6) {
+            currentRow = 0;
+        }
+    } else if (layerDisplayMode == LAYER_DISPLAY_MODE_BACK_ONLY) {
+        if (currentRow >= 12) {
+            currentRow = 6;
+        }
+        if (currentRow < 6) {
+            currentRow = 6;
+        }
+    } else {
+        if (currentRow >= 12) {
+            currentRow = 0;
+        }
     }
 }
 
@@ -366,6 +388,13 @@ void loop() {
 
         updateDisplayToNewMode();
     } else if (masterSlaveMode == WIFI_MASTER) {
+        if (modeChanged) {
+            fillMatrix(0);
+            modeChanged = false;
+            if (activeAnim == DATETIME) {
+                datetime();
+            }
+        }
         if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_DISCONNECTED && wifiConnectedMode == WIFI_CONNECTED) {
             wifiConnectedMode = WIFI_DISCONNECTED;
             scrollText("CONNECTING...", LAYER_FRONT);
@@ -644,6 +673,15 @@ void textToUpperCase(char *text) {
     }
 }
 
+void setLayerDisplayModeFromZ(uint8_t z) {
+    if (z == LAYER_FRONT) {
+        layerDisplayMode = LAYER_DISPLAY_MODE_FRONT_ONLY;
+    } else if (z == LAYER_BACK) {
+        layerDisplayMode = LAYER_DISPLAY_MODE_BACK_ONLY;
+    } else {
+        layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
+    }
+}
 
 void updateDisplay() {
     if ((millis() - lastFrameUpdate) >= frameDelay) {
@@ -687,6 +725,7 @@ void incrementSubAnimStep() {
 
 void displayOff() {
     activeAnim = OFF;
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     fillMatrix(0);
 }
 
@@ -703,6 +742,7 @@ void displayMode() {
 // Displays text.
 // If text is wider than matrix, scrolls text, else displays statically.
 void scrollTextIfLong(const char *message, uint8_t z) {
+    setLayerDisplayModeFromZ(z);
     fillMatrix(0);
 
     uint16_t len = calculateTextPixelWidth(message, false);
@@ -716,6 +756,7 @@ void scrollTextIfLong(const char *message, uint8_t z) {
 
 // Displays text statically
 void staticText(const char *message, uint8_t z, uint8_t startX) {
+    setLayerDisplayModeFromZ(z);
     fillMatrix(0);
     activeAnim = TEXT_STATIC;
     strcpy(text, message);
@@ -724,6 +765,7 @@ void staticText(const char *message, uint8_t z, uint8_t startX) {
 }
 
 void staticTextBothLayers(const char *message, uint8_t startX) {
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     fillMatrix(0);
     activeAnim = TEXT_STATIC_BOTH_LAYERS;
     strcpy(text, message);
@@ -734,6 +776,7 @@ void staticTextBothLayers(const char *message, uint8_t startX) {
 
 // Scrolls text from right to left.
 void scrollText(const char *message, uint8_t z) {
+    setLayerDisplayModeFromZ(z);
     fillMatrix(0);
     activeAnim = TEXT_SCROLL;
     strcpy(text, message);
@@ -757,6 +800,7 @@ void scrollTextUpdate() {
 // Scrolls text from right to left on both layers.
 // This gives a "3D" effect.
 void scrollTextBothLayers(const char *message) {
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     fillMatrix(0);
     activeAnim = TEXT_SCROLL_BOTH_LAYERS;
     strcpy(text, message);
@@ -849,6 +893,7 @@ void addColOfCharToMatrixR(char c, uint8_t col, uint8_t z) {
 
 void datetime() {
     activeAnim = DATETIME;
+    layerDisplayMode = LAYER_DISPLAY_MODE_FRONT_ONLY;
     char time[8];
     itoa(hours, &(time[0]), 10);
     if (time[1] == '\0') {
@@ -864,17 +909,18 @@ void datetime() {
     time[3] = ':';
     time[4] = ZERO_WIDTH_SPACE;
     time[7] = '\0';
-    displayText(time, LAYER_FRONT, 2);
+    displayText(time, LAYER_FRONT, 4);
 
-    for (uint8_t i = 0; i < weekday; i++) {
-        setVoxelOn(31, 5 - i, LAYER_BACK);
-    }
+    // for (uint8_t i = 0; i < weekday; i++) {
+    //     setVoxelOn(31, 5 - i, LAYER_BACK);
+    // }
 }
 
 
 // ANIMATION EFFECTS
 
 void wipe(uint8_t direction) {
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     activeAnim = WIPE;
     animFlags = 0;
     animFlags |= direction;
@@ -967,6 +1013,7 @@ void wipeUpdate() {
 }
 
 void wipeDiagonal(uint8_t direction) {
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     fillMatrix(0);
     activeAnim = WIPE_DIAGONAL;
     animFlags = 0;
@@ -1005,6 +1052,7 @@ void wipeDiagonalUpdate() {
 
 void boxOutline(uint8_t layer) {
     activeAnim = BOX_OUTLINE;
+    setLayerDisplayModeFromZ(layer);
     fillMatrix(0);
     if (layer == 0 || layer == 2) {
         drawBoxOutline(0, 0, 31, 5, LAYER_FRONT);
@@ -1019,6 +1067,7 @@ void boxOutline(uint8_t layer) {
 void pacmanInit() {
     fillMatrix(0);
     activeAnim = PACMAN;
+    layerDisplayMode = LAYER_DISPLAY_MODE_BOTH;
     animFlags = 0;
     totalSteps = 8;
     frameDelay = PACMAN_FRAMEDELAY;
