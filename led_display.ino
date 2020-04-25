@@ -153,6 +153,7 @@ uint16_t subAnimCurStep;
 uint8_t weekday;
 uint8_t hours;
 uint8_t mins;
+uint8_t secs;
 
 bool isSleeping = false;
 
@@ -635,6 +636,7 @@ void serialUpdateAnim() {
 void serialUpdateDatetime() {
     hours = waitForSerialByte();
     mins = waitForSerialByte();
+    secs = waitForSerialByte();
     weekday = waitForSerialByte();
     clearRemainingSerial();
 }
@@ -909,11 +911,20 @@ void datetime() {
     time[3] = ':';
     time[4] = ZERO_WIDTH_SPACE;
     time[7] = '\0';
-    displayText(time, LAYER_FRONT, 4);
+    displayText(time, LAYER_FRONT, 3);
 
-    // for (uint8_t i = 0; i < weekday; i++) {
-    //     setVoxelOn(31, 5 - i, LAYER_BACK);
-    // }
+    // show seconds in binary clock format
+    uint8_t secUnits = secs % 10;
+    uint8_t secTens = secs / 10;
+    
+    setVoxel(31, 0, LAYER_FRONT, (secUnits & 1));
+    setVoxel(31, 1, LAYER_FRONT, ((secUnits >> 1) & 1));
+    setVoxel(31, 2, LAYER_FRONT, ((secUnits >> 2) & 1));
+    setVoxel(31, 3, LAYER_FRONT, ((secUnits >> 3) & 1));
+
+    setVoxel(30, 0, LAYER_FRONT, (secTens & 1));
+    setVoxel(30, 1, LAYER_FRONT, ((secTens >> 1) & 1));
+    setVoxel(30, 2, LAYER_FRONT, ((secTens >> 2) & 1));
 }
 
 

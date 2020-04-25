@@ -104,8 +104,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS);
 bool isDatetimeMode = true;
 bool sleepAtNightEnabled = true;
 bool isSleeping = false;
-uint32_t lastDatetimeUpdate;
-uint8_t lastDatetimeMins;
+uint8_t lastDatetimeSecs;
 
 bool isMaster = false;
 
@@ -188,9 +187,9 @@ void loop() {
     timeClient.update();
 
     if (isDatetimeMode && !isSleeping) {
-        if (timeClient.getMinutes() != lastDatetimeMins) {
+        if (timeClient.getSeconds() != lastDatetimeSecs) {
             sendSerialDatetimePacket();
-            lastDatetimeMins = timeClient.getMinutes();
+            lastDatetimeSecs = timeClient.getSeconds();
         }
     }
 
@@ -353,6 +352,7 @@ void sendUpdateDatetime() {
     Serial.write(SERIAL_MODE_DATETIME);
     Serial.write(timeClient.getHours());
     Serial.write(timeClient.getMinutes());
+    Serial.write(timeClient.getSeconds());
     Serial.write(timeClient.getDay());
 }
 
@@ -362,6 +362,7 @@ void sendSerialDatetimePacket() {
     Serial.write(SERIAL_MODE_DATETIME);
     Serial.write(timeClient.getHours());
     Serial.write(timeClient.getMinutes());
+    Serial.write(timeClient.getSeconds());
     Serial.write(timeClient.getDay());
     Serial.write(SERIAL_STOP_BYTE);
 }
