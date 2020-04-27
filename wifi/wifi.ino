@@ -186,7 +186,7 @@ void loop() {
 
     timeClient.update();
 
-    if (isDatetimeMode && !isSleeping) {
+    if (isDatetimeMode) {
         if (timeClient.getSeconds() != lastDatetimeSecs) {
             sendSerialDatetimePacket();
             lastDatetimeSecs = timeClient.getSeconds();
@@ -205,7 +205,7 @@ void loop() {
 }
 
 bool isSleepTime() {
-    return timeClient.getHours() > SLEEP_TIME_START_HRS || timeClient.getHours() < SLEEP_TIME_END_HRS;
+    return (timeClient.getHours() >= SLEEP_TIME_START_HRS) || (timeClient.getHours() < SLEEP_TIME_END_HRS);
 }
 
 void writeSerialByteWithHeaders(uint8_t toWrite) {

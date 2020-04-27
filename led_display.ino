@@ -155,7 +155,7 @@ uint8_t hours;
 uint8_t mins;
 uint8_t secs;
 
-bool isSleeping = false;
+volatile bool isSleeping = false;
 
 
 void setup() {
@@ -290,6 +290,16 @@ ISR (TIMER2_COMPA_vect) {
         sr6 = (1 << (currentRow - 8));
     }
 
+    // turn display off if sleeping
+    if (isSleeping) {
+        sr1 = 0;
+        sr2 = 0;
+        sr3 = 0;
+        sr4 = 0;
+        sr5 = 0;
+        sr6 = 0;
+    }
+
     // output data to shift registers
     for (uint8_t j = 0; j < 8; j++) {
         // set clock low
@@ -356,18 +366,24 @@ ISR (PCINT0_vect) {
 
     // debounce
     if (millis() - lastBtnIntMillis > 100 && btnPressed != 0) {
-        if (btnPressed == 1 && btnState2 == BTN_OFF) {
-            mode--;
-        } else if (btnPressed == 2 && btnState1 == BTN_OFF) {
-            mode++;
-        } else if (btnPressed == 1 && btnState2 == BTN_ON) {
-            mode -= 10;
-        } else if (btnPressed == 2 && btnState1 == BTN_ON) {
-            mode += 10;
-        }
-        modeChanged = true;
-        displayMode();
         lastBtnIntMillis = millis();
+        if (masterSlaveMode == ARDUINO_MASTER) {
+            if (btnPressed == 1 && btnState2 == BTN_OFF) {
+                mode--;
+            } else if (btnPressed == 2 && btnState1 == BTN_OFF) {
+                mode++;
+            } else if (btnPressed == 1 && btnState2 == BTN_ON) {
+                mode -= 10;
+            } else if (btnPressed == 2 && btnState1 == BTN_ON) {
+                mode += 10;
+            }
+            modeChanged = true;
+            displayMode();
+        } else if (masterSlaveMode == WIFI_MASTER) {
+            if (btnPressed == 2) {
+                isSleeping = !isSleeping;
+            }
+        }
     }
 }
 
@@ -389,13 +405,6 @@ void loop() {
 
         updateDisplayToNewMode();
     } else if (masterSlaveMode == WIFI_MASTER) {
-        if (modeChanged) {
-            fillMatrix(0);
-            modeChanged = false;
-            if (activeAnim == DATETIME) {
-                datetime();
-            }
-        }
         if (digitalRead(PIN_WIFI_CONNECTED) == WIFI_DISCONNECTED && wifiConnectedMode == WIFI_CONNECTED) {
             wifiConnectedMode = WIFI_DISCONNECTED;
             scrollText("CONNECTING...", LAYER_FRONT);
@@ -409,11 +418,7 @@ void loop() {
         }
     }
 
-    if (!isSleeping) {
-        updateDisplay();
-    } else {
-        fillMatrix(0);
-    }
+    updateDisplay();
 
 /*
     // set effect for mode
@@ -914,17 +919,25 @@ void datetime() {
     displayText(time, LAYER_FRONT, 3);
 
     // show seconds in binary clock format
-    uint8_t secUnits = secs % 10;
-    uint8_t secTens = secs / 10;
+    // uint8_t secUnits = secs % 10;
+    // uint8_t secTens = secs / 10;
     
-    setVoxel(31, 0, LAYER_FRONT, (secUnits & 1));
-    setVoxel(31, 1, LAYER_FRONT, ((secUnits >> 1) & 1));
-    setVoxel(31, 2, LAYER_FRONT, ((secUnits >> 2) & 1));
-    setVoxel(31, 3, LAYER_FRONT, ((secUnits >> 3) & 1));
+    // setVoxel(31, 0, LAYER_FRONT, (secUnits & 1));
+    // setVoxel(31, 1, LAYER_FRONT, ((secUnits >> 1) & 1));
+    // setVoxel(31, 2, LAYER_FRONT, ((secUnits >> 2) & 1));
+    // setVoxel(31, 3, LAYER_FRONT, ((secUnits >> 3) & 1));
 
-    setVoxel(30, 0, LAYER_FRONT, (secTens & 1));
-    setVoxel(30, 1, LAYER_FRONT, ((secTens >> 1) & 1));
-    setVoxel(30, 2, LAYER_FRONT, ((secTens >> 2) & 1));
+    // setVoxel(30, 0, LAYER_FRONT, (secTens & 1));
+    // setVoxel(30, 1, LAYER_FRONT, ((secTens >> 1) & 1));
+    // setVoxel(30, 2, LAYER_FRONT, ((secTens >> 2) & 1));
+
+    // show seconds as binary up last column
+    setVoxel(31, 0, LAYER_FRONT, (secs & 1));
+    setVoxel(31, 1, LAYER_FRONT, ((secs >> 1) & 1));
+    setVoxel(31, 2, LAYER_FRONT, ((secs >> 2) & 1));
+    setVoxel(31, 3, LAYER_FRONT, ((secs >> 3) & 1));
+    setVoxel(31, 4, LAYER_FRONT, ((secs >> 4) & 1));
+    setVoxel(31, 5, LAYER_FRONT, ((secs >> 5) & 1));
 }
 
 
