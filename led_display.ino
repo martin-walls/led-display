@@ -916,7 +916,7 @@ void datetime() {
     time[3] = ':';
     time[4] = ZERO_WIDTH_SPACE;
     time[7] = '\0';
-    displayText(time, LAYER_FRONT, 3);
+    displayText(time, LAYER_FRONT, 4);
 
     // show seconds in binary clock format
     // uint8_t secUnits = secs % 10;
@@ -938,6 +938,15 @@ void datetime() {
     setVoxel(31, 3, LAYER_FRONT, ((secs >> 3) & 1));
     setVoxel(31, 4, LAYER_FRONT, ((secs >> 4) & 1));
     setVoxel(31, 5, LAYER_FRONT, ((secs >> 5) & 1));
+
+    // show weekday
+    for (uint8_t i = 0; i < 6; i++) {
+        if (i < weekday) {
+            setVoxelOn(0, 5 - i, LAYER_FRONT);
+        } else {
+            setVoxelOff(0, 5 - i, LAYER_FRONT);
+        }
+    }
 }
 
 
