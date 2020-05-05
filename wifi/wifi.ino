@@ -86,7 +86,7 @@
 
 // datetime
 #define UTC_OFFSET_SECONDS 3600
-#define DATETIME_UPDATE_MILLIS 10000
+#define DATETIME_UPDATE_MILLIS 15000
 
 #define SLEEP_TIME_START_HRS 22
 #define SLEEP_TIME_END_HRS 8
@@ -98,13 +98,14 @@ ESP8266WebServer server(80);
 // AsyncWebServer server(80);
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS);
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS, DATETIME_UPDATE_MILLIS);
 
 // default to datetime when power on
 bool isDatetimeMode = true;
 bool sleepAtNightEnabled = true;
 bool isSleeping = false;
 uint8_t lastDatetimeSecs;
+uint32_t lastTimeClientForceUpdate;
 
 bool isMaster = false;
 
@@ -183,6 +184,11 @@ void loop() {
         isMaster = false;
         Serial.end();
     }
+
+    // if ((millis() - lastTimeClientForceUpdate) > DATETIME_FORCE_UPDATE_MILLIS) {
+    //     lastTimeClientForceUpdate = millis();
+    //     timeClient.forceUpdate();
+    // }
 
     timeClient.update();
 
