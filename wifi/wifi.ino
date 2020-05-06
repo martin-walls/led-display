@@ -1,12 +1,12 @@
-// #include <ESP8266WiFi.h>
-// #include <WiFiClient.h>
-// #include <ESP8266mDNS.h>
+#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
-// #include <ESPAsyncTCP.h>
-// #include <ESPAsyncWebServer.h>
+// for datetime
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+// for wifi credentials config
+#include <DNSServer.h>
+#include <WiFiManager.h>
 
 // communication to arduino
 #define BAUDRATE 115200
@@ -91,11 +91,7 @@
 #define SLEEP_TIME_START_HRS 22
 #define SLEEP_TIME_END_HRS 8
 
-const char *ssid = "EE-de2brd_EXT";
-const char *password = "golf-drift-key";
-
 ESP8266WebServer server(80);
-// AsyncWebServer server(80);
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS, DATETIME_UPDATE_MILLIS);
@@ -123,17 +119,11 @@ void setup() {
     digitalWrite(LED_BUILTIN, LOW);
 
     Serial.begin(BAUDRATE, SERIAL_CONFIG);
-    WiFi.begin(ssid, password);
 
-    // wait for wifi to connect
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        // Serial.print(".");
-    }
+    WiFiManager wifiManager;
+    wifiManager.autoConnect("Mordor", "onedoesnotsimplylogin");
+
     digitalWrite(LED_BUILTIN, HIGH);
-    // Serial.println("");
-    // Serial.println("IP address: ");
-    // Serial.println(WiFi.localIP());
 
     SPIFFS.begin();
 
@@ -141,28 +131,9 @@ void setup() {
     server.serveStatic("/style.css", SPIFFS, "/style.css");
     server.serveStatic("/scripts.js", SPIFFS, "/scripts.js");
 
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //     request -> send(SPIFFS, "/index.html", "text/html");
-    // });
-
-    // server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //     request -> send(SPIFFS, "/style.css", "text/css");
-    // });
-
-    // server.on("/scripts.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //     request -> send(SPIFFS, "/scripts.js", "text/javascript");
-    // });
-
-    // server.on("/text", HTTP_POST, [](AsyncWebServerRequest *request) {
-    //     digitalWrite(LED_BUILTIN, LOW);
-    // });
-
     server.on("/update", handleEffectsUpdate);
 
     server.begin();
-    // Serial.println("Server started");
-
-    // digitalWrite(PIN_WIFI_ENABLE, WIFI_ENABLED);
 
     digitalWrite(PIN_WIFI_CONNECTED, WIFI_CONNECTED);
     while (digitalRead(PIN_MASTER_SLAVE_MODE) != WIFI_MASTER) {
