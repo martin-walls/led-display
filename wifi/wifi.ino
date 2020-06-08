@@ -1,5 +1,5 @@
-#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>
 #include <FS.h>
 // for datetime
 #include <NTPClient.h>
@@ -7,6 +7,9 @@
 // for wifi credentials config
 #include <DNSServer.h>
 #include <WiFiManager.h>
+
+// enable/disable the web server
+#define ENABLE_CONTROL_SERVER false
 
 // communication to arduino
 #define BAUDRATE 115200
@@ -107,8 +110,7 @@ bool isMaster = false;
 
 char text[64];
 
-void setup()
-{
+void setup() {
     pinMode(PIN_MASTER_SLAVE_MODE, INPUT);
     pinMode(PIN_WIFI_ENABLED, OUTPUT);
     pinMode(PIN_WIFI_CONNECTED, OUTPUT);
@@ -128,17 +130,18 @@ void setup()
 
     SPIFFS.begin();
 
-    server.serveStatic("/", SPIFFS, "/index.html");
-    server.serveStatic("/style.css", SPIFFS, "/style.css");
-    server.serveStatic("/scripts.js", SPIFFS, "/scripts.js");
+    if (ENABLE_CONTROL_SERVER) {
+        server.serveStatic("/", SPIFFS, "/index.html");
+        server.serveStatic("/style.css", SPIFFS, "/style.css");
+        server.serveStatic("/scripts.js", SPIFFS, "/scripts.js");
 
-    server.on("/update", handleEffectsUpdate);
+        server.on("/update", handleEffectsUpdate);
 
-    server.begin();
+        server.begin();
+    }
 
     digitalWrite(PIN_WIFI_CONNECTED, WIFI_CONNECTED);
-    while (digitalRead(PIN_MASTER_SLAVE_MODE) != WIFI_MASTER)
-    {
+    while (digitalRead(PIN_MASTER_SLAVE_MODE) != WIFI_MASTER) {
         delay(1);
     }
     isMaster = true;
@@ -146,18 +149,16 @@ void setup()
     timeClient.begin();
 }
 
-void loop()
-{
-    server.handleClient();
+void loop() {
+    if (ENABLE_CONTROL_SERVER) {
+        server.handleClient();
+    }
 
     uint8_t masterSlaveMode = digitalRead(PIN_MASTER_SLAVE_MODE);
-    if (masterSlaveMode == WIFI_MASTER && isMaster == false)
-    {
+    if (masterSlaveMode == WIFI_MASTER && isMaster == false) {
         isMaster = true;
         Serial.begin(BAUDRATE, SERIAL_CONFIG);
-    }
-    else if (masterSlaveMode != WIFI_MASTER && isMaster == true)
-    {
+    } else if (masterSlaveMode != WIFI_MASTER && isMaster == true) {
         isMaster = false;
         Serial.end();
     }
@@ -169,44 +170,35 @@ void loop()
 
     timeClient.update();
 
-    if (isDatetimeMode)
-    {
-        if (timeClient.getSeconds() != lastDatetimeSecs)
-        {
+    if (isDatetimeMode) {
+        if (timeClient.getSeconds() != lastDatetimeSecs) {
             sendSerialDatetimePacket();
             lastDatetimeSecs = timeClient.getSeconds();
         }
     }
 
-    if (sleepAtNightEnabled)
-    {
-        if (!isSleeping && isSleepTime())
-        {
+    if (sleepAtNightEnabled) {
+        if (!isSleeping && isSleepTime()) {
             writeSerialByteWithHeaders(SERIAL_SLEEP);
             isSleeping = true;
-        }
-        else if (isSleeping && !isSleepTime())
-        {
+        } else if (isSleeping && !isSleepTime()) {
             writeSerialByteWithHeaders(SERIAL_WAKE);
             isSleeping = false;
         }
     }
 }
 
-bool isSleepTime()
-{
+bool isSleepTime() {
     return (timeClient.getHours() >= SLEEP_TIME_START_HRS) || (timeClient.getHours() < SLEEP_TIME_END_HRS);
 }
 
-void writeSerialByteWithHeaders(uint8_t toWrite)
-{
+void writeSerialByteWithHeaders(uint8_t toWrite) {
     Serial.write(SERIAL_START_BYTE);
     Serial.write(toWrite);
     Serial.write(SERIAL_STOP_BYTE);
 }
 
-void handleEffectsUpdate()
-{
+void handleEffectsUpdate() {
     digitalWrite(LED_BUILTIN, LOW);
     delay(200);
     digitalWrite(LED_BUILTIN, HIGH);
@@ -215,35 +207,26 @@ void handleEffectsUpdate()
 
     char mode = server.arg("mode")[0];
 
-    if (mode == POST_MODE_OFF)
-    {
+    if (mode == POST_MODE_OFF) {
         isDatetimeMode = false;
         Serial.write(SERIAL_MODE_OFF);
-    }
-    else if (mode == POST_MODE_TEXT)
-    {
+    } else if (mode == POST_MODE_TEXT) {
         sendUpdateText();
-    }
-    else if (mode == POST_MODE_ANIM)
-    {
+    } else if (mode == POST_MODE_ANIM) {
         sendUpdateAnim();
-    }
-    else if (mode == POST_MODE_DATETIME)
-    {
+    } else if (mode == POST_MODE_DATETIME) {
         sendUpdateDatetime();
     }
 
     Serial.write(SERIAL_STOP_BYTE);
 }
 
-void sendUpdateText()
-{
+void sendUpdateText() {
     isDatetimeMode = false;
     Serial.write(SERIAL_MODE_TEXT);
 
     char textMode = server.arg("textmode")[0];
-    switch (textMode)
-    {
+    switch (textMode) {
     case POST_TEXTMODE_STATIC:
         Serial.write(SERIAL_TEXT_STATIC);
         break;
@@ -264,44 +247,33 @@ void sendUpdateText()
     Serial.print(server.arg("text-input"));
 }
 
-void sendUpdateAnim()
-{
+void sendUpdateAnim() {
     isDatetimeMode = false;
     Serial.write(SERIAL_MODE_ANIM);
 
     char animMode = server.arg("animmode")[0];
 
-    if (animMode == POST_ANIMMODE_PACMAN)
-    {
+    if (animMode == POST_ANIMMODE_PACMAN) {
         sendUpdatePacman();
-    }
-    else if (animMode == POST_ANIMMODE_WIPE)
-    {
+    } else if (animMode == POST_ANIMMODE_WIPE) {
         sendUpdateWipe();
-    }
-    else if (animMode == POST_ANIMMODE_WIPE_DIAGONAL)
-    {
+    } else if (animMode == POST_ANIMMODE_WIPE_DIAGONAL) {
         sendUpdateWipeDiagonal();
-    }
-    else if (animMode == POST_ANIMMODE_BOX_OUTLINE)
-    {
+    } else if (animMode == POST_ANIMMODE_BOX_OUTLINE) {
         sendUpdateBoxOutline();
     }
 }
 
-void sendUpdatePacman()
-{
+void sendUpdatePacman() {
     Serial.write(SERIAL_PACMAN);
 }
 
-void sendUpdateWipe()
-{
+void sendUpdateWipe() {
     Serial.write(SERIAL_WIPE);
 
     char dir = server.arg("dir")[0];
 
-    switch (dir)
-    {
+    switch (dir) {
     case POST_DIR_L_TO_R:
         Serial.write(SERIAL_DIR_L_TO_R);
         break;
@@ -317,8 +289,7 @@ void sendUpdateWipe()
     }
 }
 
-void sendUpdateWipeDiagonal()
-{
+void sendUpdateWipeDiagonal() {
     Serial.write(SERIAL_WIPE_DIAGONAL);
 
     char dirH = server.arg("dirH")[0];
@@ -326,35 +297,27 @@ void sendUpdateWipeDiagonal()
 
     uint8_t diagonalDir = 0;
 
-    if (dirH == POST_DIR_L_TO_R)
-    {
+    if (dirH == POST_DIR_L_TO_R) {
         diagonalDir |= SERIAL_DIR_L_TO_R;
-    }
-    else
-    {
+    } else {
         diagonalDir |= SERIAL_DIR_R_TO_L;
     }
 
-    if (dirV == POST_DIR_T_TO_B)
-    {
+    if (dirV == POST_DIR_T_TO_B) {
         diagonalDir |= SERIAL_DIR_T_TO_B;
-    }
-    else
-    {
+    } else {
         diagonalDir |= SERIAL_DIR_B_TO_T;
     }
 
     Serial.write(diagonalDir);
 }
 
-void sendUpdateBoxOutline()
-{
+void sendUpdateBoxOutline() {
     Serial.write(SERIAL_BOX_OUTLINE);
 
     char layer = server.arg("layer")[0];
 
-    switch (layer)
-    {
+    switch (layer) {
     case POST_LAYER_FRONT:
         Serial.write(SERIAL_LAYER_FRONT);
         break;
@@ -367,8 +330,7 @@ void sendUpdateBoxOutline()
     }
 }
 
-void sendUpdateDatetime()
-{
+void sendUpdateDatetime() {
     isDatetimeMode = true;
     timeClient.update();
     Serial.write(SERIAL_MODE_DATETIME);
@@ -379,8 +341,7 @@ void sendUpdateDatetime()
 }
 
 // hours, mins, day of week
-void sendSerialDatetimePacket()
-{
+void sendSerialDatetimePacket() {
     Serial.write(SERIAL_START_BYTE);
     Serial.write(SERIAL_MODE_DATETIME);
     Serial.write(timeClient.getHours());
