@@ -92,7 +92,7 @@
 //  in winter, for GMT set this to 0
 //  in summer, for BST set this to 3600
 #define UTC_OFFSET_SECONDS 3600
-#define DATETIME_UPDATE_MILLIS 60000
+#define DATETIME_UPDATE_MILLIS 30000
 
 #define SLEEP_TIME_START_HRS 22
 #define SLEEP_TIME_END_HRS 8
@@ -131,9 +131,9 @@ void setup() {
 
     digitalWrite(LED_BUILTIN, HIGH);
 
-    SPIFFS.begin();
-
     if (ENABLE_CONTROL_SERVER) {
+        SPIFFS.begin();
+
         server.serveStatic("/", SPIFFS, "/index.html");
         server.serveStatic("/style.css", SPIFFS, "/style.css");
         server.serveStatic("/scripts.js", SPIFFS, "/scripts.js");
