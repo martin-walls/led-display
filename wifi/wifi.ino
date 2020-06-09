@@ -88,6 +88,9 @@
 #define WIFI_DISCONNECTED 0
 
 // datetime
+// Summer Time offset:
+//  in winter, for GMT set this to 0
+//  in summer, for BST set this to 3600
 #define UTC_OFFSET_SECONDS 3600
 #define DATETIME_UPDATE_MILLIS 60000
 
