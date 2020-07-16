@@ -127,7 +127,9 @@ void setup() {
     Serial.begin(BAUDRATE, SERIAL_CONFIG);
 
     WiFiManager wifiManager;
-    wifiManager.autoConnect("Mordor", "onedoesnotsimplylogin");
+    wifiManager.autoConnect("led_display", "sixwordsalllowercasenospaces");
+
+    // WiFi.disconnect();
 
     digitalWrite(LED_BUILTIN, HIGH);
 
