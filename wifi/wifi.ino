@@ -5,8 +5,10 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 // for wifi credentials config
-#include <DNSServer.h>
-#include <WiFiManager.h>
+// #include <DNSServer.h>
+// #include <WiFiManager.h>
+
+#include "secrets.h"
 
 // enable/disable the web server
 #define ENABLE_CONTROL_SERVER false
@@ -126,8 +128,16 @@ void setup() {
 
     Serial.begin(BAUDRATE, SERIAL_CONFIG);
 
-    WiFiManager wifiManager;
-    wifiManager.autoConnect("led_display", "sixwordsalllowercasenospaces");
+    // WiFiManager wifiManager;
+    // wifiManager.autoConnect("led_display", "sixwordsalllowercasenospaces");
+
+    // wifi STATION mode: to connect to an access point rather than being an access point
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+    }
 
     // WiFi.disconnect();
 
