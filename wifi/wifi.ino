@@ -4,6 +4,8 @@
 // for datetime
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <TimeLib.h>
+#include <Timezone.h>
 // for wifi credentials config
 // #include <DNSServer.h>
 // #include <WiFiManager.h>
@@ -90,10 +92,7 @@
 #define WIFI_DISCONNECTED 0
 
 // datetime
-// Summer Time offset:
-//  in winter, for GMT set this to 0
-//  in summer, for BST set this to 3600
-#define UTC_OFFSET_SECONDS 3600
+#define UTC_OFFSET_SECONDS 0
 #define DATETIME_UPDATE_MILLIS 30000
 
 #define SLEEP_TIME_START_HRS 22
@@ -103,6 +102,11 @@ ESP8266WebServer server(80);
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS, DATETIME_UPDATE_MILLIS);
+
+// gmt/bst
+TimeChangeRule BST = {"BST", Last, Sun, Mar, 1, 60}; // british summer time
+TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0}; // greenwich mean time
+Timezone UK(BST, GMT);
 
 // default to datetime when power on
 bool isDatetimeMode = true;
@@ -359,9 +363,21 @@ void sendUpdateDatetime() {
 void sendSerialDatetimePacket() {
     Serial.write(SERIAL_START_BYTE);
     Serial.write(SERIAL_MODE_DATETIME);
-    Serial.write(timeClient.getHours());
-    Serial.write(timeClient.getMinutes());
-    Serial.write(timeClient.getSeconds());
-    Serial.write(timeClient.getDay());
+    // Serial.write(timeClient.getHours());
+    // Serial.write(timeClient.getMinutes());
+    // Serial.write(timeClient.getSeconds());
+    // Serial.write(timeClient.getDay());
+
+    time_t utc = timeClient.getEpochTime();
+
+    time_t local = UK.toLocal(utc);
+
+    Serial.write(hour(local));
+    Serial.write(minute(local));
+    Serial.write(second(local));
+    Serial.write(weekday(local));
+
+
+
     Serial.write(SERIAL_STOP_BYTE);
 }
