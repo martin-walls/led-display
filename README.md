@@ -1,6 +1,6 @@
 # led-display
 
-Displays current time on a 3D LED matrix. Time is retrieved from an NTP server and converted to the correct time (GMT/BST).
+Displays current time on a 3D LED matrix. Time is retrieved from an NTP server and converted to the correct time (GMT/BST). Other display effects and animations are also implemented, these can either be controlled with two physical buttons or optionally with a local webserver.
 
 ## Hardware
 
