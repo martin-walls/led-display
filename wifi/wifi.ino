@@ -3,9 +3,9 @@
 #include <FS.h>
 // for datetime
 #include <NTPClient.h>
-#include <WiFiUdp.h>
 #include <TimeLib.h>
 #include <Timezone.h>
+#include <WiFiUdp.h>
 // for wifi credentials config
 // #include <DNSServer.h>
 // #include <WiFiManager.h>
@@ -105,7 +105,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", UTC_OFFSET_SECONDS, DATETIME
 
 // gmt/bst
 TimeChangeRule BST = {"BST", Last, Sun, Mar, 1, 60}; // british summer time
-TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0}; // greenwich mean time
+TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0};  // greenwich mean time
 Timezone UK(BST, GMT);
 
 // default to datetime when power on
@@ -207,8 +207,17 @@ void loop() {
     }
 }
 
+time_t getLocalTime() {
+    time_t utc = timeClient.getEpochTime();
+    time_t local = UK.toLocal(utc);
+    return local;
+}
+
 bool isSleepTime() {
-    return (timeClient.getHours() >= SLEEP_TIME_START_HRS) || (timeClient.getHours() < SLEEP_TIME_END_HRS);
+    time_t local = getLocalTime();
+    int hr = hour(local);
+
+    return (hr >= SLEEP_TIME_START_HRS) || (hr < SLEEP_TIME_END_HRS);
 }
 
 void writeSerialByteWithHeaders(uint8_t toWrite) {
@@ -368,16 +377,12 @@ void sendSerialDatetimePacket() {
     // Serial.write(timeClient.getSeconds());
     // Serial.write(timeClient.getDay());
 
-    time_t utc = timeClient.getEpochTime();
-
-    time_t local = UK.toLocal(utc);
+    time_t local = getLocalTime();
 
     Serial.write(hour(local));
     Serial.write(minute(local));
     Serial.write(second(local));
     Serial.write(weekday(local));
-
-
 
     Serial.write(SERIAL_STOP_BYTE);
 }
