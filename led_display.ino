@@ -55,10 +55,10 @@
 #define PACMAN_FRAMEDELAY 300
 #define PACDOT_FRAMEDELAY 100
 #define PACMAN_FLAG_PACMAN_SHAPE 0b000001
-#define PACMAN_FLAG_DIRECTION    0b000010
-#define PACMAN_FLAG_DIR_L_TO_R       0b00
-#define PACMAN_FLAG_DIR_R_TO_L       0b10
-#define PACMAN_FLAG_NUM_GHOSTS   0b011100
+#define PACMAN_FLAG_DIRECTION 0b000010
+#define PACMAN_FLAG_DIR_L_TO_R 0b00
+#define PACMAN_FLAG_DIR_R_TO_L 0b10
+#define PACMAN_FLAG_NUM_GHOSTS 0b011100
 #define PACMAN_FLAG_NUM_GHOSTS_LSHIFT 2
 #define PACMAN_GHOST_GAP 12
 
@@ -94,8 +94,7 @@
 #define WIFI_CONNECTED 1
 #define WIFI_DISCONNECTED 0
 
-
-// each 32 bit row is split into two 16-bit ints. 
+// each 32 bit row is split into two 16-bit ints.
 //   [  [ front layer bottom to top ],  [ back layer bottom to top ]  ]
 //   [  [0000000000000000, (uint16_t), (uint16_t), ...x6],  [(uint16_t), (uint16_t), ...x6]  ]
 volatile uint16_t matrix[2][6][2];
@@ -124,7 +123,6 @@ extern const uint8_t pacmanShapes[][6];
 extern const uint8_t pacmanShapeLen;
 extern const uint8_t pacmanGhostShape[6];
 extern const uint8_t pacmanGhostShapeLen;
-
 
 uint8_t activeAnim = OFF;
 uint8_t animFlags;
@@ -157,9 +155,8 @@ uint8_t secs;
 
 volatile bool isSleeping = false;
 
-
 void setup() {
-    
+
     // set PORTD input/output modes
     // D0-3 unused
     // D4 clock
@@ -174,7 +171,6 @@ void setup() {
     // D10 anodes 1-8
     // D11-12 btns
     DDRB = 0b00111;
-
 
     PORTB &= 0b11111000;
     PORTD &= 0b00011111;
@@ -209,23 +205,20 @@ void setup() {
     // set a 256 prescaler
     TCCR2B |= (1 << CS22) | (1 << CS21);
 
-
     // TC2 Interrupt Mask Register
     TIMSK2 |= (1 << OCIE2A);
 
-
     // setup button interrupts
 
-    // Pin Change Interrupt Control Register 
+    // Pin Change Interrupt Control Register
     // enable interrupts for D8-13
     PCICR |= (1 << PCIE0);
 
     // Pin Change Mask Register 0
     // enable interrupts for D11, D12
     // PCINT3 = pin14, D11
-    // PCINT4 = pin15, D12 
+    // PCINT4 = pin15, D12
     PCMSK0 |= (1 << PCINT3) | (1 << PCINT4);
-
 
     // store current state of PORTB pins for button interrupts
     PINB_lastState = PINB;
@@ -240,13 +233,12 @@ void setup() {
     wifiEnabledMode = digitalRead(PIN_WIFI_ENABLED);
     wifiConnectedMode = digitalRead(PIN_WIFI_CONNECTED);
     // if wifi chip present and enabled, and it is requesting master
-    if (wifiEnabledMode == WIFI_ENABLED/* && digitalRead(PIN_WIFI_REQUEST_MASTER) == REQUEST_MASTER_TRUE*/) {
+    if (wifiEnabledMode == WIFI_ENABLED /* && digitalRead(PIN_WIFI_REQUEST_MASTER) == REQUEST_MASTER_TRUE*/) {
         setMasterSlaveMode(WIFI_MASTER);
         if (wifiConnectedMode == WIFI_DISCONNECTED) {
             scrollText("CONNECTING...", LAYER_FRONT);
         }
     }
-
 
     // get mode from non-volatile memory
     mode = EEPROM.read(EEPROM_ADDR_MODE);
@@ -260,7 +252,7 @@ void setup() {
 }
 
 // interrupt routine for timer 2
-ISR (TIMER2_COMPA_vect) {
+ISR(TIMER2_COMPA_vect) {
     // draw data from the matrix for the current row
 
     // get current row data from matrix
@@ -317,7 +309,7 @@ ISR (TIMER2_COMPA_vect) {
         PORTD |= (1 << PD4);
     }
 
-    // increment current row 
+    // increment current row
     currentRow++;
 
     // if an animation only uses one layer, only output to that layer
@@ -343,7 +335,7 @@ ISR (TIMER2_COMPA_vect) {
 
 // interrupt routine for btns
 // this is triggered for both rising and falling edges
-ISR (PCINT0_vect) {
+ISR(PCINT0_vect) {
     // interrupt is handled when state of btn is low (falling edge)
     // current state of D11
     uint8_t btnState1 = (PINB >> PINB3) & 1;
@@ -420,7 +412,7 @@ void loop() {
 
     updateDisplay();
 
-/*
+    /*
     // set effect for mode
     switch (mode) {
         case 0:
@@ -514,36 +506,36 @@ void loop() {
 
 void updateDisplayToNewMode() {
     switch (mode) {
-        case 0:
-            pacmanInit();
-            break;
-        case 1:
-            scrollText("HELLO WORLD", LAYER_FRONT);
-            break;
-        case 2:
-            scrollTextBothLayers("HIIII");
-            break;
-        case 3:
-            staticTextBothLayers("ALOHA", 2);
-            break;
-        case 4:
-            wipe(DIR_L_TO_R);
-            break;
-        case 5:
-            wipe(DIR_R_TO_L);
-            break;
-        case 6:
-            wipe(DIR_B_TO_T);
-            break;
-        case 7:
-            wipe(DIR_T_TO_B);
-            break;
-        case 8:
-            wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
-            break;
-        default:
-            displayOff();
-            break;
+    case 0:
+        pacmanInit();
+        break;
+    case 1:
+        scrollText("HELLO WORLD", LAYER_FRONT);
+        break;
+    case 2:
+        scrollTextBothLayers("HIIII");
+        break;
+    case 3:
+        staticTextBothLayers("ALOHA", 2);
+        break;
+    case 4:
+        wipe(DIR_L_TO_R);
+        break;
+    case 5:
+        wipe(DIR_R_TO_L);
+        break;
+    case 6:
+        wipe(DIR_B_TO_T);
+        break;
+    case 7:
+        wipe(DIR_T_TO_B);
+        break;
+    case 8:
+        wipeDiagonal(DIR_R_TO_L | DIR_T_TO_B);
+        break;
+    default:
+        displayOff();
+        break;
     }
 }
 
@@ -600,22 +592,22 @@ void serialUpdateText() {
     textToUpperCase(inText);
 
     switch (textMode) {
-        case TEXT_STATIC:
-            staticText(inText, LAYER_FRONT, 0);
-            break;
-        case TEXT_SCROLL:
-            scrollText(inText, LAYER_FRONT);
-            break;
-        default:
-        case TEXT_SCROLL_IF_LONG:
-            scrollTextIfLong(inText, LAYER_FRONT);
-            break;
-        case TEXT_SCROLL_BOTH_LAYERS:
-            scrollTextBothLayers(inText);
-            break;
-        case TEXT_STATIC_BOTH_LAYERS:
-            staticTextBothLayers(inText, 0);
-            break;
+    case TEXT_STATIC:
+        staticText(inText, LAYER_FRONT, 0);
+        break;
+    case TEXT_SCROLL:
+        scrollText(inText, LAYER_FRONT);
+        break;
+    default:
+    case TEXT_SCROLL_IF_LONG:
+        scrollTextIfLong(inText, LAYER_FRONT);
+        break;
+    case TEXT_SCROLL_BOTH_LAYERS:
+        scrollTextBothLayers(inText);
+        break;
+    case TEXT_STATIC_BOTH_LAYERS:
+        staticTextBothLayers(inText, 0);
+        break;
     }
 }
 
@@ -647,7 +639,8 @@ void serialUpdateDatetime() {
 }
 
 uint8_t waitForSerialByte() {
-    while (!Serial.available()) {}
+    while (!Serial.available()) {
+    }
     return Serial.read();
 }
 
@@ -693,28 +686,27 @@ void setLayerDisplayModeFromZ(uint8_t z) {
 void updateDisplay() {
     if ((millis() - lastFrameUpdate) >= frameDelay) {
         lastFrameUpdate = millis();
-        switch(activeAnim) {
-            case TEXT_SCROLL:
-                scrollTextUpdate();
-                break;
-            case TEXT_SCROLL_BOTH_LAYERS:
-                scrollTextBothLayersUpdate();
-                break;
-            case WIPE:
-                wipeUpdate();
-                break;
-            case WIPE_DIAGONAL:
-                wipeDiagonalUpdate();
-                break;
-            case PACMAN:
-                pacmanUpdate();
-                break;
-            default:
-                break;
+        switch (activeAnim) {
+        case TEXT_SCROLL:
+            scrollTextUpdate();
+            break;
+        case TEXT_SCROLL_BOTH_LAYERS:
+            scrollTextBothLayersUpdate();
+            break;
+        case WIPE:
+            wipeUpdate();
+            break;
+        case WIPE_DIAGONAL:
+            wipeDiagonalUpdate();
+            break;
+        case PACMAN:
+            pacmanUpdate();
+            break;
+        default:
+            break;
         }
     }
 }
-
 
 void incrementStep() {
     curStep++;
@@ -776,7 +768,7 @@ void staticTextBothLayers(const char *message, uint8_t startX) {
     fillMatrix(0);
     activeAnim = TEXT_STATIC_BOTH_LAYERS;
     strcpy(text, message);
-    
+
     displayText(text, LAYER_FRONT, startX);
     displayText(text, LAYER_BACK, startX);
 }
@@ -921,7 +913,7 @@ void datetime() {
     // show seconds in binary clock format
     // uint8_t secUnits = secs % 10;
     // uint8_t secTens = secs / 10;
-    
+
     // setVoxel(31, 0, LAYER_FRONT, (secUnits & 1));
     // setVoxel(31, 1, LAYER_FRONT, ((secUnits >> 1) & 1));
     // setVoxel(31, 2, LAYER_FRONT, ((secUnits >> 2) & 1));
@@ -931,6 +923,12 @@ void datetime() {
     // setVoxel(30, 1, LAYER_FRONT, ((secTens >> 1) & 1));
     // setVoxel(30, 2, LAYER_FRONT, ((secTens >> 2) & 1));
 
+    // displaySecs();
+
+    // displayWeekday();
+}
+
+void displaySecs() {
     // show seconds as binary up last column
     setVoxel(31, 0, LAYER_FRONT, (secs & 1));
     setVoxel(31, 1, LAYER_FRONT, ((secs >> 1) & 1));
@@ -938,7 +936,9 @@ void datetime() {
     setVoxel(31, 3, LAYER_FRONT, ((secs >> 3) & 1));
     setVoxel(31, 4, LAYER_FRONT, ((secs >> 4) & 1));
     setVoxel(31, 5, LAYER_FRONT, ((secs >> 5) & 1));
+}
 
+void displayWeekday() {
     // show weekday
     for (uint8_t i = 0; i < 6; i++) {
         if (i < weekday) {
@@ -948,7 +948,6 @@ void datetime() {
         }
     }
 }
-
 
 // ANIMATION EFFECTS
 
@@ -1005,7 +1004,7 @@ void wipeUpdate() {
                 }
             }
         }
-    // vertical
+        // vertical
     } else if (animFlags & (DIR_B_TO_T | DIR_T_TO_B)) {
         if (curStep <= 6) {
             for (uint8_t y = 0; y < 6; y++) {
@@ -1118,44 +1117,44 @@ void pacmanUpdate() {
 
 void pacmanSubAnimInit() {
     switch (curStep) {
-        case 0:
-            pacmanScrollInit(DIR_L_TO_R);
-            break;
-        case 1:
-            blankFrameInit(2);
-            break;
-        case 2:
-            pacmanScrollInit(DIR_R_TO_L);
-            break;
-        case 3:
-            blankFrameInit(2);
-            break;
-        case 4:
-            pacmanScrollWGhostsInit(2, DIR_L_TO_R);
-            break;
-        case 5:
-            blankFrameInit(2);
-            break;
-        case 6:
-            pacmanScrollWGhostsInit(3, DIR_R_TO_L);
-            break;
-        case 7:
-            blankFrameInit(2);
-            break;
+    case 0:
+        pacmanScrollInit(DIR_L_TO_R);
+        break;
+    case 1:
+        blankFrameInit(2);
+        break;
+    case 2:
+        pacmanScrollInit(DIR_R_TO_L);
+        break;
+    case 3:
+        blankFrameInit(2);
+        break;
+    case 4:
+        pacmanScrollWGhostsInit(2, DIR_L_TO_R);
+        break;
+    case 5:
+        blankFrameInit(2);
+        break;
+    case 6:
+        pacmanScrollWGhostsInit(3, DIR_R_TO_L);
+        break;
+    case 7:
+        blankFrameInit(2);
+        break;
     }
 }
 
 void pacmanSubAnimUpdate() {
     switch (activeSubAnim) {
-        case PACMAN_SCROLL:
-            pacmanScrollUpdate();
-            break;
-        case PACMAN_BLANK_FRAME:
-            blankFrameUpdate();
-            break;
-        case PACMAN_SCROLL_GHOSTS:
-            pacmanScrollWGhostsUpdate();
-            break;
+    case PACMAN_SCROLL:
+        pacmanScrollUpdate();
+        break;
+    case PACMAN_BLANK_FRAME:
+        blankFrameUpdate();
+        break;
+    case PACMAN_SCROLL_GHOSTS:
+        pacmanScrollWGhostsUpdate();
+        break;
     }
 }
 
@@ -1184,8 +1183,10 @@ void pacmanScrollInit(uint8_t dir) {
 
 void pacmanScrollUpdate() {
     uint8_t dir = animFlags & PACMAN_FLAG_DIRECTION;
-    if (dir == PACMAN_FLAG_DIR_L_TO_R) dir = DIR_L_TO_R;
-    else dir = DIR_R_TO_L;
+    if (dir == PACMAN_FLAG_DIR_L_TO_R)
+        dir = DIR_L_TO_R;
+    else
+        dir = DIR_R_TO_L;
 
     if (subAnimCurStep == 0) {
         drawPacDots(dir);
@@ -1220,7 +1221,8 @@ void pacmanScrollWGhostsInit(uint8_t numGhosts, uint8_t dir) {
     subAnimTotalSteps = 36 + PACMAN_GHOST_GAP + numGhosts * (pacmanGhostShapeLen + 2);
     subAnimCurStep = 0;
     // max 4 ghosts
-    if (numGhosts > 4) numGhosts = 4;
+    if (numGhosts > 4)
+        numGhosts = 4;
     animFlags &= ~PACMAN_FLAG_NUM_GHOSTS;
     animFlags |= numGhosts << PACMAN_FLAG_NUM_GHOSTS_LSHIFT;
 
@@ -1234,8 +1236,10 @@ void pacmanScrollWGhostsInit(uint8_t numGhosts, uint8_t dir) {
 
 void pacmanScrollWGhostsUpdate() {
     uint8_t dir = animFlags & PACMAN_FLAG_DIRECTION;
-    if (dir == PACMAN_FLAG_DIR_L_TO_R) dir = DIR_L_TO_R;
-    else dir = DIR_R_TO_L;
+    if (dir == PACMAN_FLAG_DIR_L_TO_R)
+        dir = DIR_L_TO_R;
+    else
+        dir = DIR_R_TO_L;
 
     if (subAnimCurStep == 0) {
         drawPacDots(dir);
@@ -1288,11 +1292,9 @@ void pacmanScrollWGhostsUpdate() {
 
 ////////////////////////// TODO do these //////////////////////////////////////////////////////////////
 void pacmanEatGhostInit() {
-
 }
 
 void pacmanEatGhostUpdate() {
-
 }
 
 // Draws pacdots in the given direction on the back layer.
@@ -1311,7 +1313,7 @@ void drawPacDots(uint8_t direction) {
     }
 }
 
-// Draws pacdots in the given direction on the back layer, 
+// Draws pacdots in the given direction on the back layer,
 // with the specified dot being a power pellet.
 void drawPacDots(uint8_t direction, uint8_t bigDotPos) {
     uint8_t x;
@@ -1325,7 +1327,7 @@ void drawPacDots(uint8_t direction, uint8_t bigDotPos) {
         // draw power pellet
         if (dotI == bigDotPos) {
             drawPacDotPowerPellet(x);
-        // draw normal pacdot
+            // draw normal pacdot
         } else {
             setVoxelOn(x, PACDOT_HEIGHT, LAYER_BACK);
         }
@@ -1342,7 +1344,7 @@ void drawPacDotPowerPellet(uint8_t x) {
     setVoxelOn(x + 1, PACDOT_HEIGHT, LAYER_BACK);
 }
 
-// Draws pacman at the given x pos. 
+// Draws pacman at the given x pos.
 // The x pos corresponds to the left-most col of the shape.
 void drawPacmanShape(int8_t x, uint8_t z, uint8_t shape, uint8_t direction) {
     // check x range
@@ -1380,7 +1382,7 @@ void setColForShape(uint8_t shape[6], uint8_t len, uint8_t col, uint8_t x, uint8
 
 // GENERAL DRAWING FUNCTIONS
 
-// Shifts the entire contents of the matrix one space to the left. 
+// Shifts the entire contents of the matrix one space to the left.
 // void shiftMatrixL() {
 //     for (uint8_t i = 0; i < 2; i++) {
 //         for (uint8_t j = 0; j < 6; j++) {
@@ -1493,7 +1495,7 @@ void setRowBothLayers(uint8_t y, uint8_t state) {
 // Sets the given col on
 void setColOn(uint8_t x, uint8_t z) {
     if (isInRangeX(x) && isInRangeZ(z)) {
-        
+
         uint8_t rowHalf = 0;
         if (x > 15) {
             rowHalf = 1;
@@ -1509,7 +1511,7 @@ void setColOn(uint8_t x, uint8_t z) {
 // Sets the given col off
 void setColOff(uint8_t x, uint8_t z) {
     if (isInRangeX(x) && isInRangeZ(z)) {
-        
+
         uint8_t rowHalf = 0;
         if (x > 15) {
             rowHalf = 1;
@@ -1623,499 +1625,428 @@ uint16_t line1(uint8_t start, uint8_t end) {
     return line(start, end);
 }
 
-
-
-
-
-
-
-
-
-
-
 // lowercase letters are not defined - use only uppercase
 const uint8_t ascii[][6] = {
     {// SPACE
-        0b000,
-        0b000,
-        0b000,
-        0b000,
-        0b000,
-        0b000
-    },
+     0b000,
+     0b000,
+     0b000,
+     0b000,
+     0b000,
+     0b000},
     {// !
-        0b1,
-        0b1,
-        0b1,
-        0b1,
-        0b0,
-        0b1
-    },
+     0b1,
+     0b1,
+     0b1,
+     0b1,
+     0b0,
+     0b1},
     {// "
-        0b11,
-        0b11,
-        0b00,
-        0b00,
-        0b00,
-        0b00
-    },
+     0b11,
+     0b11,
+     0b00,
+     0b00,
+     0b00,
+     0b00},
     {// #
-        0b00000,
-        0b01010,
-        0b11111,
-        0b01010,
-        0b11111,
-        0b01010
-    },
+     0b00000,
+     0b01010,
+     0b11111,
+     0b01010,
+     0b11111,
+     0b01010},
     {// $
-        0b00100,
-        0b01111,
-        0b10100,
-        0b01110,
-        0b00101,
-        0b11110
-    },
+     0b00100,
+     0b01111,
+     0b10100,
+     0b01110,
+     0b00101,
+     0b11110},
     {// %
-        0b010001,
-        0b101010,
-        0b010100,
-        0b001010,
-        0b010101,
-        0b100010
-    },
+     0b010001,
+     0b101010,
+     0b010100,
+     0b001010,
+     0b010101,
+     0b100010},
     {// &
-        0b01110,
-        0b10000,
-        0b10001,
-        0b01111,
-        0b10001,
-        0b01110
-    },
+     0b01110,
+     0b10000,
+     0b10001,
+     0b01111,
+     0b10001,
+     0b01110},
     {// '
-        0b1,
-        0b1,
-        0b0,
-        0b0,
-        0b0,
-        0b0
-    },
+     0b1,
+     0b1,
+     0b0,
+     0b0,
+     0b0,
+     0b0},
     {// (
-        0b01,
-        0b10,
-        0b10,
-        0b10,
-        0b10,
-        0b01
-    },
+     0b01,
+     0b10,
+     0b10,
+     0b10,
+     0b10,
+     0b01},
     {// )
-        0b10,
-        0b01,
-        0b01,
-        0b01,
-        0b01,
-        0b10
-    },
+     0b10,
+     0b01,
+     0b01,
+     0b01,
+     0b01,
+     0b10},
     {// *
-        0b1,
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b0
-    },
+     0b1,
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b0},
     {// +
-        0b000,
-        0b000,
-        0b010,
-        0b111,
-        0b010,
-        0b000
-    },
+     0b000,
+     0b000,
+     0b010,
+     0b111,
+     0b010,
+     0b000},
     {// ,
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b1,
-        0b1
-    },
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b1,
+     0b1},
     {// -
-        0b000,
-        0b000,
-        0b000,
-        0b111,
-        0b000,
-        0b000
-    },
+     0b000,
+     0b000,
+     0b000,
+     0b111,
+     0b000,
+     0b000},
     {// .
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b1
-    },
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b1},
     {// /
-        0b001,
-        0b001,
-        0b010,
-        0b010,
-        0b100,
-        0b100
-    },
+     0b001,
+     0b001,
+     0b010,
+     0b010,
+     0b100,
+     0b100},
     {// 0
-        0b0110,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b0110
-    },
+     0b0110,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b0110},
     {// 1
-        0b010,
-        0b110,
-        0b010,
-        0b010,
-        0b010,
-        0b111
-    },
+     0b010,
+     0b110,
+     0b010,
+     0b010,
+     0b010,
+     0b111},
     {// 2
-        0b0110,
-        0b1001,
-        0b0001,
-        0b0110,
-        0b1000,
-        0b1111
-    },
+     0b0110,
+     0b1001,
+     0b0001,
+     0b0110,
+     0b1000,
+     0b1111},
     {// 3
-        0b1110,
-        0b0001,
-        0b0110,
-        0b0001,
-        0b0001,
-        0b1110
-    },
+     0b1110,
+     0b0001,
+     0b0110,
+     0b0001,
+     0b0001,
+     0b1110},
     {// 4
-        0b00010,
-        0b00110,
-        0b01010,
-        0b10010,
-        0b11111,
-        0b00010
-    },
+     0b00010,
+     0b00110,
+     0b01010,
+     0b10010,
+     0b11111,
+     0b00010},
     {// 5
-        0b1111,
-        0b1000,
-        0b1110,
-        0b0001,
-        0b1001,
-        0b0110
-    },
+     0b1111,
+     0b1000,
+     0b1110,
+     0b0001,
+     0b1001,
+     0b0110},
     {// 6
-        0b0110,
-        0b1000,
-        0b1110,
-        0b1001,
-        0b1001,
-        0b0110
-    },
+     0b0110,
+     0b1000,
+     0b1110,
+     0b1001,
+     0b1001,
+     0b0110},
     {// 7
-        0b1111,
-        0b0001,
-        0b0010,
-        0b0100,
-        0b0100,
-        0b0100
-    },
+     0b1111,
+     0b0001,
+     0b0010,
+     0b0100,
+     0b0100,
+     0b0100},
     {// 8
-        0b0110,
-        0b1001,
-        0b0110,
-        0b1001,
-        0b1001,
-        0b0110
-    },
+     0b0110,
+     0b1001,
+     0b0110,
+     0b1001,
+     0b1001,
+     0b0110},
     {// 9
-        0b0110,
-        0b1001,
-        0b1001,
-        0b0111,
-        0b0001,
-        0b0110
-    },
+     0b0110,
+     0b1001,
+     0b1001,
+     0b0111,
+     0b0001,
+     0b0110},
     {// :
-        0b0,
-        0b0,
-        0b1,
-        0b0,
-        0b1,
-        0b0
-    },
+     0b0,
+     0b0,
+     0b1,
+     0b0,
+     0b1,
+     0b0},
     {// ;
-        0b0,
-        0b0,
-        0b1,
-        0b0,
-        0b1,
-        0b1
-    },
+     0b0,
+     0b0,
+     0b1,
+     0b0,
+     0b1,
+     0b1},
     {// <
-        0b00,
-        0b00,
-        0b01,
-        0b10,
-        0b01,
-        0b00
-    },
+     0b00,
+     0b00,
+     0b01,
+     0b10,
+     0b01,
+     0b00},
     {// =
-        0b000,
-        0b000,
-        0b111,
-        0b000,
-        0b111,
-        0b000
-    },
+     0b000,
+     0b000,
+     0b111,
+     0b000,
+     0b111,
+     0b000},
     {// >
-        0b00,
-        0b00,
-        0b10,
-        0b01,
-        0b10,
-        0b00
-    },
+     0b00,
+     0b00,
+     0b10,
+     0b01,
+     0b10,
+     0b00},
     {// ?
-        0b0110,
-        0b1001,
-        0b0001,
-        0b0110,
-        0b0000,
-        0b0100
-    },
+     0b0110,
+     0b1001,
+     0b0001,
+     0b0110,
+     0b0000,
+     0b0100},
     {// @
-        0b011110,
-        0b100001,
-        0b101101,
-        0b101111,
-        0b100000,
-        0b011111
-    },
+     0b011110,
+     0b100001,
+     0b101101,
+     0b101111,
+     0b100000,
+     0b011111},
     {// A
-        0b0110,
-        0b1001,
-        0b1001,
-        0b1111,
-        0b1001,
-        0b1001
-    },
+     0b0110,
+     0b1001,
+     0b1001,
+     0b1111,
+     0b1001,
+     0b1001},
     {// B
-        0b1110,
-        0b1001,
-        0b1110,
-        0b1001,
-        0b1001,
-        0b1110
-    },
+     0b1110,
+     0b1001,
+     0b1110,
+     0b1001,
+     0b1001,
+     0b1110},
     {// C
-        0b0111,
-        0b1000,
-        0b1000,
-        0b1000,
-        0b1000,
-        0b0111
-    },
+     0b0111,
+     0b1000,
+     0b1000,
+     0b1000,
+     0b1000,
+     0b0111},
     {// D
-        0b1110,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1110
-    },
+     0b1110,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1110},
     {// E
-        0b1111,
-        0b1000,
-        0b1000,
-        0b1111,
-        0b1000,
-        0b1111
-    },
+     0b1111,
+     0b1000,
+     0b1000,
+     0b1111,
+     0b1000,
+     0b1111},
     {// F
-        0b1111,
-        0b1000,
-        0b1111,
-        0b1000,
-        0b1000,
-        0b1000
-    },
+     0b1111,
+     0b1000,
+     0b1111,
+     0b1000,
+     0b1000,
+     0b1000},
     {// G
-        0b0111,
-        0b1000,
-        0b1000,
-        0b1011,
-        0b1001,
-        0b0111
-    },
+     0b0111,
+     0b1000,
+     0b1000,
+     0b1011,
+     0b1001,
+     0b0111},
     {// H
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1111,
-        0b1001,
-        0b1001
-    },
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1111,
+     0b1001,
+     0b1001},
     {// I
-        0b111,
-        0b010,
-        0b010,
-        0b010,
-        0b010,
-        0b111
-    },
+     0b111,
+     0b010,
+     0b010,
+     0b010,
+     0b010,
+     0b111},
     {// J
-        0b111,
-        0b001,
-        0b001,
-        0b001,
-        0b101,
-        0b010
-    },
+     0b111,
+     0b001,
+     0b001,
+     0b001,
+     0b101,
+     0b010},
     {// K
-        0b1001,
-        0b1001,
-        0b1010,
-        0b1100,
-        0b1010,
-        0b1001
-    },
+     0b1001,
+     0b1001,
+     0b1010,
+     0b1100,
+     0b1010,
+     0b1001},
     {// L
-        0b1000,
-        0b1000,
-        0b1000,
-        0b1000,
-        0b1000,
-        0b1111
-    },
+     0b1000,
+     0b1000,
+     0b1000,
+     0b1000,
+     0b1000,
+     0b1111},
     {// M
-        0b10001,
-        0b11011,
-        0b10101,
-        0b10001,
-        0b10001,
-        0b10001
-    },
+     0b10001,
+     0b11011,
+     0b10101,
+     0b10001,
+     0b10001,
+     0b10001},
     {// N
-        0b1001,
-        0b1001,
-        0b1101,
-        0b1011,
-        0b1001,
-        0b1001
-    },
+     0b1001,
+     0b1001,
+     0b1101,
+     0b1011,
+     0b1001,
+     0b1001},
     {// O
-        0b0110,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b0110
-    },
+     0b0110,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b0110},
     {// P
-        0b1110,
-        0b1001,
-        0b1001,
-        0b1110,
-        0b1000,
-        0b1000
-    },
+     0b1110,
+     0b1001,
+     0b1001,
+     0b1110,
+     0b1000,
+     0b1000},
     {// Q
-        0b0110,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b0110,
-        0b0001
-    },
+     0b0110,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b0110,
+     0b0001},
     {// R
-        0b1110,
-        0b1001,
-        0b1001,
-        0b1110,
-        0b1010,
-        0b1001
-    },
+     0b1110,
+     0b1001,
+     0b1001,
+     0b1110,
+     0b1010,
+     0b1001},
     {// S
-        0b0111,
-        0b1000,
-        0b1000,
-        0b0110,
-        0b0001,
-        0b1110
-    },
+     0b0111,
+     0b1000,
+     0b1000,
+     0b0110,
+     0b0001,
+     0b1110},
     {// T
-        0b11111,
-        0b00100,
-        0b00100,
-        0b00100,
-        0b00100,
-        0b00100
-    },
+     0b11111,
+     0b00100,
+     0b00100,
+     0b00100,
+     0b00100,
+     0b00100},
     {// U
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b1001,
-        0b0110
-    },
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b1001,
+     0b0110},
     {// V
-        0b10001,
-        0b10001,
-        0b10001,
-        0b10001,
-        0b01010,
-        0b00100
-    },
+     0b10001,
+     0b10001,
+     0b10001,
+     0b10001,
+     0b01010,
+     0b00100},
     {// W
-        0b10001,
-        0b10001,
-        0b10001,
-        0b10101,
-        0b10101,
-        0b01010
-    },
+     0b10001,
+     0b10001,
+     0b10001,
+     0b10101,
+     0b10101,
+     0b01010},
     {// X
-        0b10001,
-        0b01010,
-        0b00100,
-        0b00100,
-        0b01010,
-        0b10001
-    },
+     0b10001,
+     0b01010,
+     0b00100,
+     0b00100,
+     0b01010,
+     0b10001},
     {// Y
-        0b10001,
-        0b10001,
-        0b01010,
-        0b00100,
-        0b00100,
-        0b00100
-    },
+     0b10001,
+     0b10001,
+     0b01010,
+     0b00100,
+     0b00100,
+     0b00100},
     {// Z
-        0b1111,
-        0b0001,
-        0b0010,
-        0b0100,
-        0b1000,
-        0b1111
-    },
+     0b1111,
+     0b0001,
+     0b0010,
+     0b0100,
+     0b1000,
+     0b1111},
     {// zero width space
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b0,
-        0b0
-    }
-};
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b0,
+     0b0}};
 
 // Length of each character symbol
 const uint8_t asciiLen[] = {
@@ -2178,36 +2109,29 @@ const uint8_t asciiLen[] = {
     5, // X
     5, // Y
     4, // Z
-    0 // zero width space
+    0  // zero width space
 };
 
 // Shapes for pacman
 const uint8_t pacmanShapes[3][6] = {
-    {
-        0b00000,
-        0b01110,
-        0b10001,
-        0b10010,
-        0b10001,
-        0b01110
-    },
-    {
-        0b00000,
-        0b01110,
-        0b10001,
-        0b10011,
-        0b10001,
-        0b01110
-    },
-    {
-        0b00000,
-        0b00000,
-        0b00000,
-        0b00000,
-        0b00000,
-        0b00000
-    }
-};
+    {0b00000,
+     0b01110,
+     0b10001,
+     0b10010,
+     0b10001,
+     0b01110},
+    {0b00000,
+     0b01110,
+     0b10001,
+     0b10011,
+     0b10001,
+     0b01110},
+    {0b00000,
+     0b00000,
+     0b00000,
+     0b00000,
+     0b00000,
+     0b00000}};
 
 const uint8_t pacmanShapeLen = 5;
 
@@ -2218,14 +2142,9 @@ const uint8_t pacmanGhostShape[6] = {
     0b11011,
     0b10001,
     0b11011,
-    0b10101
-};
+    0b10101};
 
 const uint8_t pacmanGhostShapeLen = 5;
-
-
-
-
 
 /*
 
